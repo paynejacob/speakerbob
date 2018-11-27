@@ -1,0 +1,13 @@
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+.idea/jsLibraryMappings.xml
+.idea/dataSources.local.xml
+.idea/dataSources/
+.idea/sqlDataSources.xml
+.idea/dynamic.xml
+.idea/uiDesigner.xml
+.idea/codeStyles/
+*.iws
+
+vendor

@@ -1,0 +1,27 @@
+version: "3.7"
+
+services:
+  speakerbob:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DBHOST=postgres
+      - DBUSER=speakerbob
+      - DBPASSWORD=speakerbob
+      - DBNAME=speakerbob
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=speakerbob
+      - POSTGRES_USER=speakerbob
+      - POSTGRES_DB=speakerbob
