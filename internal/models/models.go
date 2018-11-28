@@ -8,11 +8,11 @@ type Sound struct {
 	Id        string     `gorm:"primary_key;unique;index" json:"id"`
 	CreatedAt *time.Time `json:"create_at"`
 
-	Name      string      `gorm:"unique;index" json:"name"`
-	Duration  int         `gorm:"default:0" json:"duration"`
-	NSFW    bool `gorm:"default:false" json:"nsfw"`
-	Visible    bool `gorm:"default:true" json:"visible"`
-	PlayCount int         `gorm:"default:0" json:"play_count"`
+	Name      string `gorm:"unique;index" json:"name"`
+	Duration  int    `gorm:"default:0" json:"duration"`
+	NSFW      bool   `gorm:"default:false" json:"nsfw"`
+	Visible   bool   `gorm:"default:true" json:"visible"`
+	PlayCount int    `gorm:"default:0" json:"play_count"`
 }
 
 type Macro struct {

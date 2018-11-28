@@ -11,6 +11,10 @@ services:
       - DBUSER=speakerbob
       - DBPASSWORD=speakerbob
       - DBNAME=speakerbob
+      - MINIOHOST=minio:9000
+      - MINIOACCESSID=speakerbob
+      - MINIOACCESSKEY=speakerbob
+      - MINIOUSESSL=false
 
   redis:
     image: redis:alpine
@@ -25,3 +29,17 @@ services:
       - POSTGRES_PASSWORD=speakerbob
       - POSTGRES_USER=speakerbob
       - POSTGRES_DB=speakerbob
+
+  minio:
+    image: minio/minio
+    volumes:
+      - minio:/data
+    ports:
+      - "9000:9000"
+    environment:
+      MINIO_ACCESS_KEY: speakerbob
+      MINIO_SECRET_KEY: speakerbob
+    command: server /data
+
+volumes:
+  minio:

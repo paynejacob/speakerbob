@@ -6,6 +6,7 @@ import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/minio/minio-go"
 	"log"
 	"sync"
 )
@@ -24,6 +25,12 @@ type Config struct {
 	DBName     string
 
 	RedisURL string
+
+	MinioURL        string
+	MinioAccessID   string
+	MinioAccessKey  string
+	MinioUseSSL     bool   `default:"true"`
+	SoundBucketName string `default:"sbsounds"`
 }
 
 var configOnce sync.Once
@@ -73,4 +80,23 @@ func GetRedisClient() *redis.Client {
 	})
 
 	return redisClient
+}
+
+var minioClientOnce sync.Once
+var minioClient *minio.Client
+
+func GetMinioClient() *minio.Client {
+	minioClientOnce.Do(func() {
+		var err error
+		minioClient, err = minio.New(GetConfig().MinioURL,
+			GetConfig().MinioAccessID,
+			GetConfig().MinioAccessKey,
+			GetConfig().MinioUseSSL)
+
+		if err != nil {
+			log.Fatalf("Failed to config minio %v", err)
+		}
+	})
+
+	return minioClient
 }

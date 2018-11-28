@@ -9,6 +9,10 @@
       <env name="DBPASSWORD" value="speakerbob" />
       <env name="DBNAME" value="speakerbob" />
       <env name="REDISURL" value="redis://localhost:6379/0" />
+      <env name="MINIOURL" value="localhost:9000" />
+      <env name="MINIOACCESSID" value="speakerbob" />
+      <env name="MINIOACCESSKEY" value="speakerbob" />
+      <env name="MINIOUSESSL" value="false" />
     </envs>
     <kind value="FILE" />
     <filePath value="$PROJECT_DIR$/cmd/speakerbob.go" />
