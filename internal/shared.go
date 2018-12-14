@@ -9,6 +9,7 @@ import (
 	"github.com/minio/minio-go"
 	"log"
 	"sync"
+	"time"
 )
 
 type Config struct {
@@ -31,6 +32,8 @@ type Config struct {
 	MinioAccessKey  string
 	MinioUseSSL     bool   `default:"true"`
 	SoundBucketName string `default:"sbsounds"`
+
+	CookieTTL time.Duration `default:"86400"`
 }
 
 var configOnce sync.Once

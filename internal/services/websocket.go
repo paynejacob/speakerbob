@@ -14,7 +14,7 @@ var clients = make(map[*websocket.Conn]bool) // connected clients
 var upgrader = websocket.Upgrader{}
 
 // WSConnect: View for upgrading ws requests to ws connections.
-func GetWSConnect(w http.ResponseWriter, r *http.Request) {
+func WSConnect(w http.ResponseWriter, r *http.Request) {
 	// Upgrade initial GET request to a websocket
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {

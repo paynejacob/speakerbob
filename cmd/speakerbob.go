@@ -53,10 +53,13 @@ func main() {
 // Registers handlers to routes
 func registerRoutes(router *mux.Router) {
 	// API Routes
-	router.HandleFunc("/api/ws", services.GetWSConnect).Methods("GET")
-	router.HandleFunc("/api/speak", services.GetSpeak).Methods("GET")
+	router.HandleFunc("/api/ws", services.WSConnect).Methods("GET")
+	router.HandleFunc("/api/speak", services.Speak).Methods("GET")
+
+	router.HandleFunc("/api/login", services.Login).Methods("POST")
+	router.HandleFunc("/api/logout", services.Logout).Methods("GET")
 
 	// Generic Routes
-	router.HandleFunc("/status", services.GetStatus).Methods("GET")
+	router.HandleFunc("/status", services.Status).Methods("GET")
 	router.Handle("/", http.FileServer(http.Dir("../assets")))
 }
