@@ -92,6 +92,18 @@
   version = "v1.2.0"
 
 [[projects]]
+  name = "github.com/thedevsaddam/govalidator"
+  packages = ["."]
+  revision = "4bee3f98732ad2cdd9d0648dc2d7729d6f91efc9"
+  version = "v1.9.4"
+
+[[projects]]
+  name = "github.com/urfave/cli"
+  packages = ["."]
+  revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
+  version = "v1.20.0"
+
+[[projects]]
   name = "github.com/urfave/negroni"
   packages = ["."]
   revision = "c6a59be0ce122566695fbd5e48a77f8f10c8a63a"
@@ -100,7 +112,7 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["argon2","blake2b","ssh/terminal"]
+  packages = ["argon2","bcrypt","blake2b","blowfish","ssh/terminal"]
   revision = "eb0de9b17e854e9b1ccd9963efafc79862359959"
 
 [[projects]]
@@ -124,6 +136,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5d587193d973ed6ce746bdf06d6c9068c8d78ff9c1a121b970b222980e155e35"
+  inputs-digest = "28ab98af2d6556b1aa1343a90176837b59c5560547d7abaff287b5e11ac68e38"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -33,7 +33,7 @@ type Config struct {
 	MinioUseSSL     bool   `default:"true"`
 	SoundBucketName string `default:"sbsounds"`
 
-	CookieTTL time.Duration `default:"86400"`
+	CookieTTL time.Duration `default:"-1s"`
 }
 
 var configOnce sync.Once
@@ -91,6 +91,7 @@ var minioClient *minio.Client
 func GetMinioClient() *minio.Client {
 	minioClientOnce.Do(func() {
 		var err error
+		log.Printf("MINIO: %s", GetConfig().MinioURL)
 		minioClient, err = minio.New(GetConfig().MinioURL,
 			GetConfig().MinioAccessID,
 			GetConfig().MinioAccessKey,

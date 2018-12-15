@@ -35,7 +35,7 @@ func SendMessage(message Message) {
 
 // WSMessageConsumer: Go channel for consuming incoming messages from redis and sending them to any active websocket.
 func WSMessageConsumer() {
-	pubsub := internal.GetRedisClient().Subscribe(MessageChannel)
+	var pubsub = internal.GetRedisClient().Subscribe(MessageChannel)
 
 	_, err := pubsub.Receive()
 	if err != nil {
