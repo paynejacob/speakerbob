@@ -2,7 +2,6 @@ package authentication
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
 	"github.com/thedevsaddam/govalidator"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
@@ -28,7 +27,7 @@ type LoginForm struct {
 func Login(w http.ResponseWriter, r *http.Request) {
 	// short circuit if we are already logged in
 	if c, _ := r.Cookie(AuthCookieName); c != nil {
-		if internal.GetRedisClient().Exists(c.Value).Val() == 1 {
+		if internal.GetRedisClient().Exists(getCookieKey(r.RemoteAddr, c)).Val() == 1 {
 			w.WriteHeader(http.StatusNoContent)
 			_, _ = w.Write([]byte(""))
 			return
@@ -85,7 +84,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	// create the cookie
 	var cookie = &http.Cookie{
 		Name:    AuthCookieName,
-		Value:   uuid.New().String(),
+		Value:   internal.GetUUID(),
 		Path:    "/",
 		Domain:  r.Host,
 		Expires: cookieExpire,
@@ -93,7 +92,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, cookie)
 
 	// store the cookie value
-	internal.GetRedisClient().Set(cookie.Value, user.Id, internal.GetConfig().CookieTTL)
+	internal.GetRedisClient().Set(getCookieKey(r.RemoteAddr, cookie), user.Id, internal.GetConfig().CookieTTL)
 
 	w.WriteHeader(http.StatusNoContent)
 	_, _ = w.Write([]byte(""))
@@ -104,7 +103,7 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 
 	// if a cookie is not set then there is no work
 	if err != http.ErrNoCookie {
-		internal.GetRedisClient().Del(cookie.Value)
+		internal.GetRedisClient().Del(getCookieKey(r.RemoteAddr, cookie))
 	}
 
 	w.WriteHeader(http.StatusNoContent)

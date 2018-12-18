@@ -3,11 +3,13 @@ package internal
 import (
 	"fmt"
 	"github.com/go-redis/redis"
+	"github.com/google/uuid"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/minio/minio-go"
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
@@ -103,4 +105,8 @@ func GetMinioClient() *minio.Client {
 	})
 
 	return minioClient
+}
+
+func GetUUID() string {
+	return strings.Replace(uuid.New().String(), "-", "", 4)
 }
