@@ -3,15 +3,61 @@ package main
 import (
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/urfave/cli"
 	"github.com/urfave/negroni"
 	"log"
 	"net/http"
+	"os"
 	"speakerbob/internal"
+	"speakerbob/internal/authentication"
 	"speakerbob/internal/models"
 	"speakerbob/internal/services"
 )
 
 func main() {
+	app := cli.NewApp()
+	app.Name = "Speakerbob"
+	app.Usage = "A distributed soundboard."
+	app.Action = func(c *cli.Context) error {
+		serve()
+		return nil
+	}
+	app.Commands = []cli.Command{
+		{
+			Name:  "serve",
+			Usage: "Run the Speakerbob service.",
+			Action: func(c *cli.Context) error {
+				serve()
+				return nil
+			},
+		},
+		{
+			Name:  "adduser",
+			Usage: "Create a new user.",
+			Flags: []cli.Flag{
+				cli.StringFlag{Name: "username", Usage: "the new user's username"},
+				cli.StringFlag{Name: "password", Usage: "the new user's password"},
+			},
+			Action: func(c *cli.Context) error {
+				var user = authentication.NewUser(c.Args().Get(0), c.Args().Get(1), c.Args().Get(0))
+				if err := internal.GetDB().Create(&user).Error; err != nil {
+					log.Printf("An error occured creating the user: %v", err)
+					return nil
+				}
+
+				log.Printf("User \"%s\" sucessfully created!", c.Args().Get(0))
+				return nil
+			},
+		},
+	}
+
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func serve() {
 	log.Print("Starting Speakerbob")
 	router := mux.NewRouter()
 	n := negroni.New(negroni.NewRecovery())
@@ -26,7 +72,7 @@ func main() {
 	n.UseHandler(router)
 
 	log.Print("Migrating database")
-	internal.GetDB().AutoMigrate(&models.Sound{}, &models.Macro{}, &models.PositionalSound{})
+	internal.GetDB().AutoMigrate(&models.Sound{}, &models.Macro{}, &models.PositionalSound{}, &authentication.User{})
 
 	log.Printf("Verifying audio bucket")
 	err := internal.GetMinioClient().MakeBucket(internal.GetConfig().SoundBucketName, "us-east-1")
@@ -53,10 +99,13 @@ func main() {
 // Registers handlers to routes
 func registerRoutes(router *mux.Router) {
 	// API Routes
-	router.HandleFunc("/api/ws", services.GetWSConnect).Methods("GET")
-	router.HandleFunc("/api/speak", services.GetSpeak).Methods("GET")
+	router.HandleFunc("/api/ws", services.WSConnect).Methods("GET")
+	router.HandleFunc("/api/speak", services.Speak).Methods("GET")
+
+	router.HandleFunc("/api/login", authentication.Login).Methods("POST")
+	router.HandleFunc("/api/logout", authentication.Logout).Methods("GET")
 
 	// Generic Routes
-	router.HandleFunc("/status", services.GetStatus).Methods("GET")
+	router.HandleFunc("/status", services.Status).Methods("GET")
 	router.Handle("/", http.FileServer(http.Dir("../assets")))
 }

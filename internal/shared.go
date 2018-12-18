@@ -3,12 +3,15 @@ package internal
 import (
 	"fmt"
 	"github.com/go-redis/redis"
+	"github.com/google/uuid"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/minio/minio-go"
 	"log"
+	"strings"
 	"sync"
+	"time"
 )
 
 type Config struct {
@@ -31,6 +34,8 @@ type Config struct {
 	MinioAccessKey  string
 	MinioUseSSL     bool   `default:"true"`
 	SoundBucketName string `default:"sbsounds"`
+
+	CookieTTL time.Duration `default:"-1s"`
 }
 
 var configOnce sync.Once
@@ -88,6 +93,7 @@ var minioClient *minio.Client
 func GetMinioClient() *minio.Client {
 	minioClientOnce.Do(func() {
 		var err error
+		log.Printf("MINIO: %s", GetConfig().MinioURL)
 		minioClient, err = minio.New(GetConfig().MinioURL,
 			GetConfig().MinioAccessID,
 			GetConfig().MinioAccessKey,
@@ -99,4 +105,8 @@ func GetMinioClient() *minio.Client {
 	})
 
 	return minioClient
+}
+
+func GetUUID() string {
+	return strings.Replace(uuid.New().String(), "-", "", 4)
 }

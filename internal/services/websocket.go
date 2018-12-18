@@ -14,7 +14,7 @@ var clients = make(map[*websocket.Conn]bool) // connected clients
 var upgrader = websocket.Upgrader{}
 
 // WSConnect: View for upgrading ws requests to ws connections.
-func GetWSConnect(w http.ResponseWriter, r *http.Request) {
+func WSConnect(w http.ResponseWriter, r *http.Request) {
 	// Upgrade initial GET request to a websocket
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -35,7 +35,7 @@ func SendMessage(message Message) {
 
 // WSMessageConsumer: Go channel for consuming incoming messages from redis and sending them to any active websocket.
 func WSMessageConsumer() {
-	pubsub := internal.GetRedisClient().Subscribe(MessageChannel)
+	var pubsub = internal.GetRedisClient().Subscribe(MessageChannel)
 
 	_, err := pubsub.Receive()
 	if err != nil {

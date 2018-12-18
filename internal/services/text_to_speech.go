@@ -1,11 +1,9 @@
 package services
 
-import (
-	"net/http"
-)
+import "net/http"
 
 //GetSpeak: Plays the given text on all clients
-func GetSpeak(w http.ResponseWriter, r *http.Request) {
+func Speak(w http.ResponseWriter, r *http.Request) {
 	// validate payload
 	// request wave file or load existing
 	// create new sound if not exist

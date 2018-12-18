@@ -10,7 +10,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o speakerbob cmd/sp
 
 FROM alpine:latest
 WORKDIR /root/
-COPY --from=gobuild /go/src/speakerbob/speakerbob .
+COPY --from=gobuild /go/src/speakerbob/speakerbob /usr/local/bin/speakerbob
 CMD ["echo", "TODO copy the ui"]
 EXPOSE 80
-CMD ["./speakerbob"]
+CMD ["speakerbob"]

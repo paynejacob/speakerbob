@@ -11,10 +11,11 @@ services:
       - DBUSER=speakerbob
       - DBPASSWORD=speakerbob
       - DBNAME=speakerbob
-      - MINIOHOST=minio:9000
+      - MINIOURL=minio:9000
       - MINIOACCESSID=speakerbob
       - MINIOACCESSKEY=speakerbob
       - MINIOUSESSL=false
+      - REDISURL=redis://redis:6379/0
 
   redis:
     image: redis:alpine
