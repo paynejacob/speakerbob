@@ -44,6 +44,12 @@
   version = "v1.4.0"
 
 [[projects]]
+  name = "github.com/hajimehoshi/go-mp3"
+  packages = [".","internal/bits","internal/consts","internal/frame","internal/frameheader","internal/huffman","internal/imdct","internal/maindata","internal/sideinfo"]
+  revision = "90191ee719ddc192865cd96bdc8013ef1ed6dbea"
+  version = "v0.1.1"
+
+[[projects]]
   name = "github.com/jinzhu/gorm"
   packages = [".","dialects/postgres"]
   revision = "6ed508ec6a4ecb3531899a69cbc746ccf65a4166"
@@ -136,6 +142,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "28ab98af2d6556b1aa1343a90176837b59c5560547d7abaff287b5e11ac68e38"
+  inputs-digest = "ecd226709bfaa489fadc04b361a16921b76a27da17688734f108d3c0164c0153"
   solver-name = "gps-cdcl"
   solver-version = 1

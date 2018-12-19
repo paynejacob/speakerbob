@@ -35,6 +35,9 @@ type Config struct {
 	MinioUseSSL     bool   `default:"true"`
 	SoundBucketName string `default:"sbsounds"`
 
+	PageSize int `default:"100"`
+	MaxSoundLength int `default:"10"`
+
 	CookieTTL time.Duration `default:"-1s"`
 }
 

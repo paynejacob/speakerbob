@@ -10,8 +10,8 @@ import (
 	"os"
 	"speakerbob/internal"
 	"speakerbob/internal/authentication"
-	"speakerbob/internal/models"
 	"speakerbob/internal/services"
+	"speakerbob/internal/sound"
 )
 
 func main() {
@@ -72,7 +72,7 @@ func serve() {
 	n.UseHandler(router)
 
 	log.Print("Migrating database")
-	internal.GetDB().AutoMigrate(&models.Sound{}, &models.Macro{}, &models.PositionalSound{}, &authentication.User{})
+	internal.GetDB().AutoMigrate(&sound.Sound{}, &sound.Macro{}, &sound.PositionalSound{}, &authentication.User{})
 
 	log.Printf("Verifying audio bucket")
 	err := internal.GetMinioClient().MakeBucket(internal.GetConfig().SoundBucketName, "us-east-1")
@@ -104,6 +104,15 @@ func registerRoutes(router *mux.Router) {
 
 	router.HandleFunc("/api/login", authentication.Login).Methods("POST")
 	router.HandleFunc("/api/logout", authentication.Logout).Methods("GET")
+
+	router.HandleFunc("/api/sound", sound.ListSound).Methods("GET")
+	router.HandleFunc("/api/sound", sound.CreateSound).Methods("POST")
+	router.HandleFunc("/api/sound/{id}", sound.GetSound).Methods("GET")
+	router.HandleFunc("/api/sound/{id}/download", sound.DownloadSound).Methods("GET")
+
+	router.HandleFunc("/api/macro", sound.ListMacro).Methods("GET")
+	router.HandleFunc("/api/macro", sound.CreateMacro).Methods("POST")
+	router.HandleFunc("/api/macro/{id}", sound.GetMacro).Methods("GET")
 
 	// Generic Routes
 	router.HandleFunc("/status", services.Status).Methods("GET")

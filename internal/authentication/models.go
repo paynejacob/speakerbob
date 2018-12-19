@@ -17,8 +17,7 @@ type User struct {
 }
 
 func NewUser(username string, password string, displayName string) User {
-	var createdAt = time.Now()
 	passwordHash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return User{
-		internal.GetUUID(), createdAt, username, string(passwordHash), displayName}
+		internal.GetUUID(), time.Now(), username, string(passwordHash), displayName}
 }

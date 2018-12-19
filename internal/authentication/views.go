@@ -50,7 +50,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Header().Set("Content-Type", "application/json")
 
-		if e.Get("_error") == "unexpected EOF" {
+		if msg := e.Get("_error"); msg == "unexpected EOF" || msg == "EOF" {
 			_ = json.NewEncoder(w).Encode(BadRequestResponse{"Invalid JSON."})
 		} else {
 			_ = json.NewEncoder(w).Encode(e)
