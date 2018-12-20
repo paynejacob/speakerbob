@@ -36,12 +36,13 @@ func getAudioDuration(path string) (int, error) {
 		parts[i] = val
 	}
 	duration += parts[0] * 60 * 60  // hours
-	duration += parts[0] * 60 // minutes
-	duration += parts[0] // seconds
+	duration += parts[1] * 60 // minutes
+	duration += parts[2] // seconds
 
 	return duration, nil
 }
 
-func normalizeAudio(path string) error {
-	return exec.Command("ffmpeg", fmt.Sprintf("ffmpeg -y -i %s -filter:a loudnorm -f mp3 %s", path, path)).Run()
+func normalizeAudio(path string) (string, error) {
+	normalPath := fmt.Sprintf("%s.normal", path)
+	return normalPath, exec.Command("ffmpeg", "-y", "-i", path, "-filter:a", "loudnorm", "-f", "mp3", normalPath).Run()
 }

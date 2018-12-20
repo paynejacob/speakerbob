@@ -113,6 +113,7 @@ func registerRoutes(router *mux.Router) {
 	router.HandleFunc("/api/macro", sound.ListMacro).Methods("GET")
 	router.HandleFunc("/api/macro", sound.CreateMacro).Methods("POST")
 	router.HandleFunc("/api/macro/{id}", sound.GetMacro).Methods("GET")
+	router.HandleFunc("/api/macro/{id}/download", sound.DownloadMacro).Methods("GET")
 
 	// Generic Routes
 	router.HandleFunc("/status", services.Status).Methods("GET")

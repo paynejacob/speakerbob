@@ -46,7 +46,7 @@ func ListSound(w http.ResponseWriter, r *http.Request) {
 		resp.Offset, _ = strconv.Atoi(offsetStr[0])
 	}
 
-	internal.GetDB().Model(&Sound{}).Where("visible = ", true).Count(&resp.Count)
+	internal.GetDB().Model(&Sound{}).Where("visible = ?", true).Count(&resp.Count)
 	internal.GetDB().Limit(internal.GetConfig().PageSize).Offset(resp.Offset).Find(&resp.Results)
 
 
@@ -101,34 +101,34 @@ func CreateSound(w http.ResponseWriter, r *http.Request) {
 	// dump the uploaded file to disk
 	tmpFilePath := fmt.Sprintf("/tmp/%s", sound.Id)
 	outFile, _ := os.Create(tmpFilePath)
-	file, header, _ := r.FormFile("sound")
+	file, _, _ := r.FormFile("sound")
 	_, _ = io.Copy(outFile, file)
 	_ = file.Close()
-	defer os.Remove(tmpFilePath)
-	defer outFile.Close()
+	_ = outFile.Close()
+	defer func() {_ = os.Remove(tmpFilePath)}()
 
 	// validate the file length
 	if length, err := getAudioDuration(tmpFilePath); length > internal.GetConfig().MaxSoundLength {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(BadRequestResponse{fmt.Sprintf("sound file length may not exceed %d", internal.GetConfig().MaxSoundLength)})
+		_ = json.NewEncoder(w).Encode(BadRequestResponse{fmt.Sprintf("sound file length may not exceed %d seconds", internal.GetConfig().MaxSoundLength)})
+		return
 	} else if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(BadRequestResponse{"an error occurred processing the audio file"})
 		return
 	}
 
-	// TODO this is not working
 	// normalize the audio file
-	if err := normalizeAudio(tmpFilePath); err != nil {
+	normalPath, err := normalizeAudio(tmpFilePath)
+	defer func() {_ = os.Remove(normalPath)}()
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(BadRequestResponse{"an error occurred processing the audio file"})
 		return
 	}
 
 	// upload the audio file to minio
-	_, _ = outFile.Seek(0, 0)
-	_, err := internal.GetMinioClient().PutObject(internal.GetConfig().SoundBucketName, sound.Id, outFile, header.Size, minio.PutObjectOptions{})
-	if err != nil {
+	if _, err := internal.GetMinioClient().FPutObject(internal.GetConfig().SoundBucketName, sound.Id, normalPath, minio.PutObjectOptions{}); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(BadRequestResponse{"an error occurred processing the audio file"})
 		return
@@ -142,8 +142,27 @@ func CreateSound(w http.ResponseWriter, r *http.Request) {
 }
 
 func DownloadSound(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-	_, _ = w.Write([]byte(""))
+	id := mux.Vars(r)["id"]
+	var exists int
+
+	internal.GetDB().Model(&Sound{}).Where("id = ?", id).Count(&exists).Limit(1)
+
+	if exists != 1 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	obj, err := internal.GetMinioClient().GetObject(internal.GetConfig().SoundBucketName, id, minio.GetObjectOptions{})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+	objStats, _ := obj.Stat()
+
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.mp3", id))
+	w.Header().Set("Content-Type", "audio/mpeg")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", objStats.Size))
+	_, _ = io.Copy(w, obj)
 }
 
 type ListMacroResponse struct {
@@ -163,6 +182,11 @@ func GetMacro(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateMacro(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+	_, _ = w.Write([]byte(""))
+}
+
+func DownloadMacro(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 	_, _ = w.Write([]byte(""))
 }
