@@ -1,5 +1,6 @@
 package main
 
+import "C"
 import (
 	"fmt"
 	"github.com/gorilla/mux"
@@ -10,8 +11,8 @@ import (
 	"os"
 	"speakerbob/internal"
 	"speakerbob/internal/authentication"
-	"speakerbob/internal/models"
-	"speakerbob/internal/services"
+	"speakerbob/internal/sound"
+	"speakerbob/internal/websocket"
 )
 
 func main() {
@@ -40,7 +41,9 @@ func main() {
 			},
 			Action: func(c *cli.Context) error {
 				var user = authentication.NewUser(c.Args().Get(0), c.Args().Get(1), c.Args().Get(0))
-				if err := internal.GetDB().Create(&user).Error; err != nil {
+				config := internal.GetConfig()
+				db := internal.GetDB(config.DBDialect, config.DBConfig)
+				if err := db.Create(&user).Error; err != nil {
 					log.Printf("An error occured creating the user: %v", err)
 					return nil
 				}
@@ -58,54 +61,34 @@ func main() {
 }
 
 func serve() {
-	log.Print("Starting Speakerbob")
+	log.Print("starting Speakerbob")
+
+	config := internal.GetConfig()
+	db := internal.GetDB(config.DBDialect, config.DBConfig)
+	minioClient := internal.GetMinio(config.MinioURL, config.MinioAccessID, config.MinioAccessKey, config.MinioUseSSL)
 	router := mux.NewRouter()
 	n := negroni.New(negroni.NewRecovery())
-
-	// Register Logger
 	logger := negroni.NewLogger()
-	logger.SetFormat(internal.GetConfig().LogFormat)
+
+	// configure logger
+	logger.SetFormat(config.LogFormat)
 	n.Use(logger)
 
-	log.Print("Registering routes")
-	registerRoutes(router)
-	n.UseHandler(router)
+	log.Println("creating services")
+	authService := authentication.NewService(config.AuthBackendURL, config.CookieName, config.TokenTTL, db)
+	soundService := sound.NewService(config.SoundBucketName, config.PageSize, config.MaxSoundLength, db, minioClient)
+	wsService := websocket.NewService(config.MessageBrokerURL, db)
 
-	log.Print("Migrating database")
-	internal.GetDB().AutoMigrate(&models.Sound{}, &models.Macro{}, &models.PositionalSound{}, &authentication.User{})
-
-	log.Printf("Verifying audio bucket")
-	err := internal.GetMinioClient().MakeBucket(internal.GetConfig().SoundBucketName, "us-east-1")
-	if err != nil {
-		// Check to see if we already own this bucket (which happens if you run this twice)
-		exists, err := internal.GetMinioClient().BucketExists(internal.GetConfig().SoundBucketName)
-		if err == nil && exists {
-			log.Print("Audio bucket already exists.")
-		} else {
-			log.Fatalln(err)
-		}
-	} else {
-		log.Printf("Audio bucket was created %s\n", internal.GetConfig().SoundBucketName)
-	}
-
-	log.Print("Starting WS Consumer")
-	go services.WSMessageConsumer()
-
-	log.Print("Starting Web Server")
-	log.Printf("Listening on %s:%v", internal.GetConfig().DBHost, internal.GetConfig().Port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", internal.GetConfig().Host, internal.GetConfig().Port), n))
-}
-
-// Registers handlers to routes
-func registerRoutes(router *mux.Router) {
-	// API Routes
-	router.HandleFunc("/api/ws", services.WSConnect).Methods("GET")
-	router.HandleFunc("/api/speak", services.Speak).Methods("GET")
-
-	router.HandleFunc("/api/login", authentication.Login).Methods("POST")
-	router.HandleFunc("/api/logout", authentication.Logout).Methods("GET")
-
-	// Generic Routes
-	router.HandleFunc("/status", services.Status).Methods("GET")
+	log.Print("registering routes")
+	authService.RegisterRoutes(router, "/auth")
+	soundService.RegisterRoutes(router, "/api")
 	router.Handle("/", http.FileServer(http.Dir("../assets")))
+
+	log.Print("starting ws consumer")
+	go wsService.WSMessageConsumer()
+
+	log.Print("starting web server")
+	log.Printf("sistening on %s:%v", config.Host, config.Port)
+	n.UseHandler(router)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", config.Host, config.Port), n))
 }

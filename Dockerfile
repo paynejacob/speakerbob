@@ -9,6 +9,7 @@ RUN dep ensure
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o speakerbob cmd/speakerbob.go
 
 FROM alpine:latest
+RUN apk add --no-cache ffmpeg
 WORKDIR /root/
 COPY --from=gobuild /go/src/speakerbob/speakerbob /usr/local/bin/speakerbob
 CMD ["echo", "TODO copy the ui"]
