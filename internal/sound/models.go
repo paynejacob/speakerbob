@@ -1,12 +1,13 @@
 package sound
 
 import (
-	"speakerbob/internal"
+	"github.com/google/uuid"
+	"strings"
 	"time"
 )
 
 type Sound struct {
-	Id        string     `gorm:"primary_key;unique;index" json:"id"`
+	Id        string    `gorm:"primary_key;unique;index" json:"id"`
 	CreatedAt time.Time `json:"create_at"`
 
 	Name      string `gorm:"unique;index" json:"name"`
@@ -17,15 +18,17 @@ type Sound struct {
 }
 
 func NewSound(name string, nsfw bool, visible bool) Sound {
-	return Sound{internal.GetUUID(), time.Now(), name, 0, nsfw, visible, 0}
+	return Sound{strings.Replace(uuid.New().String(), "-", "", 4), time.Now(), name, 0, nsfw, visible, 0}
 }
 
 type Macro struct {
-	Id        string `gorm:"primary_key;unique;index"`
-	CreatedAt *time.Time
+	Id        string     `gorm:"primary_key;unique;index" json:"id"`
+	CreatedAt *time.Time `json:"created_at"`
 
-	Name      string `gorm:"unique;index"`
-	PlayCount int    `gorm:"default:0"`
+	Name      string `gorm:"unique;index" json:"name"`
+	PlayCount int    `gorm:"default:0" json:"play_count"`
+
+	NSFW bool `gorm:"-"`
 }
 
 type PositionalSound struct {

@@ -1,8 +1,9 @@
 package authentication
 
 import (
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
-	"speakerbob/internal"
+	"strings"
 	"time"
 )
 
@@ -18,6 +19,5 @@ type User struct {
 
 func NewUser(username string, password string, displayName string) User {
 	passwordHash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	return User{
-		internal.GetUUID(), time.Now(), username, string(passwordHash), displayName}
+	return User{strings.Replace(uuid.New().String(), "-", "", 4), time.Now(), username, string(passwordHash), displayName}
 }

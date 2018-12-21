@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/minio/minio-go"
+	"log"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -35,9 +37,9 @@ func getAudioDuration(path string) (int, error) {
 
 		parts[i] = val
 	}
-	duration += parts[0] * 60 * 60  // hours
-	duration += parts[1] * 60 // minutes
-	duration += parts[2] // seconds
+	duration += parts[0] * 60 * 60 // hours
+	duration += parts[1] * 60      // minutes
+	duration += parts[2]           // seconds
 
 	return duration, nil
 }
@@ -45,4 +47,17 @@ func getAudioDuration(path string) (int, error) {
 func normalizeAudio(path string) (string, error) {
 	normalPath := fmt.Sprintf("%s.normal", path)
 	return normalPath, exec.Command("ffmpeg", "-y", "-i", path, "-filter:a", "loudnorm", "-f", "mp3", normalPath).Run()
+}
+
+func ensureBucket(soundBucketName string, minio *minio.Client) {
+	err := minio.MakeBucket(soundBucketName, "us-east-1")
+	if err != nil {
+		// Check to see if we already own this bucket (which happens if you run this twice)
+		exists, err := minio.BucketExists(soundBucketName)
+		if err != nil || !exists {
+			log.Fatalln(err)
+		}
+	} else {
+		log.Printf("Audio bucket was created %s\n", soundBucketName)
+	}
 }
