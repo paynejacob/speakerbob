@@ -178,10 +178,11 @@ func (s *Service) DownloadSound(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, obj)
 }
 
-// TODO play
-// TODO search
-// TODO this
-func (s *Service) ListMacro(w http.ResponseWriter, r *http.Request) {
+func (s * Service) PlaySound(w http.ResponseWriter, r *http.Request)  {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+func (s * Service) ListUser(w http.ResponseWriter, r *http.Request)  {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 

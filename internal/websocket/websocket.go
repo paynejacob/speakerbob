@@ -35,6 +35,8 @@ type Service struct {
 	db *gorm.DB
 }
 
+// TODO router register
+
 func (s *Service) WSConnect(w http.ResponseWriter, r *http.Request) {
 	var channels ChannelSet
 

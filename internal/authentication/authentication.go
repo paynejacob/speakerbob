@@ -163,3 +163,15 @@ func (s *Service) Logout(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (s * Service) ListUser(w http.ResponseWriter, r *http.Request)  {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+func (s * Service) GetUser(w http.ResponseWriter, r *http.Request)  {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+func (s * Service) UpdateUser(w http.ResponseWriter, r *http.Request)  {
+	w.WriteHeader(http.StatusNotImplemented)
+}
