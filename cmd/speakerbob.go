@@ -81,7 +81,7 @@ func serve() {
 	log.Print("registering routes")
 	authService.RegisterRoutes(router, "/auth")
 	soundService.RegisterRoutes(router, "/api")
-	router.Handle("/", http.FileServer(http.Dir("../assets")))
+	router.Handle("/", http.FileServer(http.Dir("/etc/speakerbob/assets")))
 
 	log.Print("starting ws consumer")
 	go wsService.WSMessageConsumer()
