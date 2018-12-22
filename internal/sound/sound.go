@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
-	"github.com/minio/minio-go"
 	"github.com/thedevsaddam/govalidator"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"speakerbob/internal/websocket"
 	"strconv"
 )
 
@@ -23,21 +24,47 @@ type ListResponse struct {
 	Results []Sound `json:"results"`
 }
 
-// TODO storage backend
-
-func NewService(soundBucketName string, pageSize int, maxSoundLength int, db *gorm.DB, minio *minio.Client) *Service {
-	ensureBucket(soundBucketName, minio)
-	db.AutoMigrate(&Sound{}, &Macro{}, &PositionalSound{})
-	return &Service{soundBucketName, pageSize, maxSoundLength, db, minio}
+type PlaySoundForm struct {
+	Channels []string `json:"channels"`
 }
 
 type Service struct {
-	soundBucketName string
+	backend Backend
 	pageSize        int
 	maxSoundLength  int
 
 	db    *gorm.DB
-	minio *minio.Client
+	wsService    *websocket.Service
+}
+
+func NewService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB, wsService *websocket.Service) *Service {
+	var backend Backend
+	parsedUrl, err := url.Parse(backendURL)
+	if err != nil {
+		panic("invalid backend url")
+	}
+
+	switch parsedUrl.Scheme {
+	case "local":
+		parsedURL, err := url.Parse(backendURL)
+		if err != nil {
+			panic("invalid local backend url")
+		}
+		backend = NewlocalBackend(parsedURL.Path)
+	case "minio://":
+		parsedURL, err := url.Parse(backendURL)
+		if err != nil {
+			panic("invalid minio backend url")
+		}
+
+		password, _ := parsedURL.User.Password()
+		backend = NewMinioBackend(parsedURL.Host, parsedURL.User.Username(), password, parsedURL.Query()["use_ssl"][0] == "1", parsedURL.Path[1:])
+	default:
+		panic(fmt.Sprintf("\"%s\" is not a valid sound backend url", parsedUrl.Scheme))
+	}
+
+	db.AutoMigrate(&Sound{}, &Macro{}, &PositionalSound{})
+	return &Service{backend, pageSize, maxSoundLength, db, wsService}
 }
 
 func (s *Service) RegisterRoutes(router *mux.Router, subpath string) {
@@ -45,6 +72,7 @@ func (s *Service) RegisterRoutes(router *mux.Router, subpath string) {
 	router.HandleFunc(fmt.Sprintf("%s/sound", subpath), s.CreateSound).Methods("POST")
 	router.HandleFunc(fmt.Sprintf("%s/sound/{id}", subpath), s.GetSound).Methods("GET")
 	router.HandleFunc(fmt.Sprintf("%s/sound/{id}/download", subpath), s.DownloadSound).Methods("GET")
+	router.HandleFunc(fmt.Sprintf("%s/sound/{id}/play", subpath), s.PlaySound).Methods("POST")
 
 	router.HandleFunc(fmt.Sprintf("%s/macro", subpath), s.ListMacro).Methods("GET")
 	router.HandleFunc(fmt.Sprintf("%s/macro", subpath), s.CreateMacro).Methods("POST")
@@ -90,7 +118,7 @@ func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
 	e := govalidator.New(govalidator.Options{
 		Request: r,
 		Rules: govalidator.MapData{
-			"name":       []string{"required", "uniqueSoundName"}, // TODO unique name
+			"name":       []string{"required"},
 			"file:sound": []string{"required"},
 		},
 	}).Validate()
@@ -127,7 +155,6 @@ func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(BadRequestResponse{"an error occurred processing the audio file"})
 		return
 	}
 
@@ -136,14 +163,19 @@ func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = os.Remove(normalPath) }()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(BadRequestResponse{"an error occurred processing the audio file"})
 		return
 	}
 
 	// upload the audio file to minio
-	if _, err := s.minio.FPutObject(s.soundBucketName, sound.Id, normalPath, minio.PutObjectOptions{}); err != nil {
+	normalFile, err := os.Open(normalPath)
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(BadRequestResponse{"an error occurred processing the audio file"})
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	if err := s.backend.PutSound(sound, normalFile); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -156,33 +188,58 @@ func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) DownloadSound(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	var exists int
+	var soundRecord Sound
 
-	s.db.Model(&Sound{}).Where("id = ?", id).Count(&exists).Limit(1)
+	s.db.Model(&Sound{}).Where("id = ?", id).First(&soundRecord)
 
-	if exists != 1 {
+	if soundRecord.Id == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	obj, err := s.minio.GetObject(s.soundBucketName, id, minio.GetObjectOptions{})
+	if s.backend.ServeRedirect() {
+		if err := s.backend.RedirectSound(soundRecord, w, r); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	file, err := s.backend.GetSound(soundRecord)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
-	objStats, _ := obj.Stat()
-
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.mp3", id))
 	w.Header().Set("Content-Type", "audio/mpeg")
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", objStats.Size))
-	_, _ = io.Copy(w, obj)
+	_, _ = io.Copy(w, file)
 }
 
-func (s * Service) PlaySound(w http.ResponseWriter, r *http.Request)  {
-	w.WriteHeader(http.StatusNotImplemented)
+func (s *Service) PlaySound(w http.ResponseWriter, r *http.Request)  {
+	id := mux.Vars(r)["id"]
+	var sound Sound
+
+	if s.db.Select("Id", "NSFW").Where("id = ?", id).First(&sound); sound.Id != "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	channels, _ := r.URL.Query()["channel"]
+	if len(channels) == 0 {
+		channels = append(channels, "*")
+	}
+
+	channelSet := websocket.ChannelSet{}
+	for _, channel := range channels {
+		channelSet.Add(&websocket.Channel{channel})
+	}
+
+	message := websocket.NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW)
+	s.wsService.SendMessage(message)
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s * Service) ListUser(w http.ResponseWriter, r *http.Request)  {
+func (s *Service) ListMacro(w http.ResponseWriter, r *http.Request)  {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 

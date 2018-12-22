@@ -42,7 +42,7 @@ func main() {
 			Action: func(c *cli.Context) error {
 				var user = authentication.NewUser(c.Args().Get(0), c.Args().Get(1), c.Args().Get(0))
 				config := internal.GetConfig()
-				db := internal.GetDB(config.DBDialect, config.DBConfig)
+				db := internal.GetDB(config.DBURL)
 				if err := db.Create(&user).Error; err != nil {
 					log.Printf("An error occured creating the user: %v", err)
 					return nil
@@ -64,8 +64,7 @@ func serve() {
 	log.Print("starting Speakerbob")
 
 	config := internal.GetConfig()
-	db := internal.GetDB(config.DBDialect, config.DBConfig)
-	minioClient := internal.GetMinio(config.MinioURL, config.MinioAccessID, config.MinioAccessKey, config.MinioUseSSL)
+	db := internal.GetDB(config.DBURL)
 	router := mux.NewRouter()
 	n := negroni.New(negroni.NewRecovery())
 	logger := negroni.NewLogger()
@@ -76,8 +75,8 @@ func serve() {
 
 	log.Println("creating services")
 	authService := authentication.NewService(config.AuthBackendURL, config.CookieName, config.TokenTTL, db)
-	soundService := sound.NewService(config.SoundBucketName, config.PageSize, config.MaxSoundLength, db, minioClient)
 	wsService := websocket.NewService(config.MessageBrokerURL, db)
+	soundService := sound.NewService(config.SoundBackendURL, config.PageSize, config.MaxSoundLength, db, wsService)
 
 	log.Print("registering routes")
 	authService.RegisterRoutes(router, "/auth")
