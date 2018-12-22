@@ -39,7 +39,7 @@
 
 [[projects]]
   name = "github.com/jinzhu/gorm"
-  packages = ["."]
+  packages = [".","dialects/sqlite"]
   revision = "472c70caa40267cb89fd8facb07fe6454b578626"
   version = "v1.9.2"
 
@@ -60,6 +60,12 @@
   packages = ["."]
   revision = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242"
   version = "v1.0.1"
+
+[[projects]]
+  name = "github.com/mattn/go-sqlite3"
+  packages = ["."]
+  revision = "c7c4067b79cc51e6dfdcef5c702e74b1e0fa7c75"
+  version = "v1.10.0"
 
 [[projects]]
   name = "github.com/minio/minio-go"
@@ -124,6 +130,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e803ab34025476d81f9e8575046a31d3ebb69b79299087e5924c3a2a30aa98f5"
+  inputs-digest = "3041efa10aa3c04d25cf97cd17ad6ee2db3cc3139d7f58eca4d929830f482f87"
   solver-name = "gps-cdcl"
   solver-version = 1

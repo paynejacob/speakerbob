@@ -24,40 +24,40 @@ func (c *Connection) Hash() uint64 {
 }
 
 type Channel struct {
-	value string
+	Value string
 }
 
 func (c *Channel) Hash() uint64 {
 	h := fnv.New64()
-	_, _ = h.Write([]byte(c.value))
+	_, _ = h.Write([]byte(c.Value))
 
 	return h.Sum64()
 }
 
 type Backend interface {
-	Channel() chan Message
-	SendMessage(message Message)
+	Channel() chan IMessage
+	SendMessage(message IMessage)
 	Connections(channels ChannelSet) []*Connection
 	LocalConnections(channels ChannelSet) []*Connection
 	RegisterConnection(ws *websocket.Conn, user authentication.User, channels ChannelSet, nsfw bool) *Connection
 	CloseConnection(connection *Connection)
 }
 
-func NewMemoryBackend() MemoryBackend {
-	return MemoryBackend{}
-}
-
 type MemoryBackend struct {
-	channel     chan Message
+	channel     chan IMessage
 	connections ConnectionSet
 	channelMap  map[string]ConnectionSet
 }
 
-func (b MemoryBackend) Channel() chan Message {
+func NewMemoryBackend() MemoryBackend {
+	return MemoryBackend{make(chan IMessage), ConnectionSet{}, make(map[string]ConnectionSet)}
+}
+
+func (b MemoryBackend) Channel() chan IMessage {
 	return b.channel
 }
 
-func (b MemoryBackend) SendMessage(message Message) {
+func (b MemoryBackend) SendMessage(message IMessage) {
 	b.channel <- message
 }
 
@@ -65,7 +65,7 @@ func (b MemoryBackend) Connections(channels ChannelSet) []*Connection {
 	var connections ConnectionSet
 
 	for _, channel := range channels {
-		if conns, ok := b.channelMap[channel.value]; ok {
+		if conns, ok := b.channelMap[channel.Value]; ok {
 			connections = connections.Union(conns)
 		}
 	}
@@ -81,11 +81,11 @@ func (b MemoryBackend) RegisterConnection(ws *websocket.Conn, user authenticatio
 	connection := &Connection{strings.Replace(uuid.New().String(), "-", "", 4), ws, user, nsfw, channels}
 
 	for _, channel := range channels.Values() {
-		if _, ok := b.channelMap[channel.value]; !ok {
+		if _, ok := b.channelMap[channel.Value]; !ok {
 			newSet := ConnectionSet{}
-			b.channelMap[channel.value] = newSet
+			b.channelMap[channel.Value] = newSet
 		}
-		b.channelMap[channel.value].Add(connection)
+		b.channelMap[channel.Value].Add(connection)
 	}
 	b.connections.Add(connection)
 
@@ -94,9 +94,9 @@ func (b MemoryBackend) RegisterConnection(ws *websocket.Conn, user authenticatio
 
 func (b MemoryBackend) CloseConnection(connection *Connection) {
 	for _, channel := range connection.channels.Values() {
-		b.channelMap[channel.value].Remove(connection)
-		if len(b.channelMap[channel.value]) == 0 {
-			delete(b.channelMap, channel.value)
+		b.channelMap[channel.Value].Remove(connection)
+		if len(b.channelMap[channel.Value]) == 0 {
+			delete(b.channelMap, channel.Value)
 		}
 	}
 

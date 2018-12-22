@@ -34,7 +34,7 @@ func NewService(backendURL string, cookieName string, ttl time.Duration, db *gor
 	if matches := backendProtoRegex.FindStringSubmatch(backendURL); len(matches) > 0 {
 		proto := matches[0]
 		switch proto {
-		case "memory":
+		case "memory://":
 			backend = NewMemoryBackend(ttl)
 		default:
 			panic(fmt.Sprintf("\"%s\" is not a valid authentication backend proto", proto))
@@ -95,7 +95,7 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 		Data:    &data,
 		Rules: govalidator.MapData{
 			"username": []string{"required"},
-			"pssword":  []string{"required"},
+			"password":  []string{"required"},
 		},
 	}).ValidateJSON()
 

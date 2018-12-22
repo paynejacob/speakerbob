@@ -7,22 +7,12 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
-      - MINIOURL=minio:9000
-      - MINIOACCESSID=speakerbob
-      - MINIOACCESSKEY=speakerbob
-      - MINIOUSESSL=false
-      - REDISURL=redis://redis:6379/0
-
-  minio:
-    image: minio/minio
+      - DBURL=sqlite3:///etc/speakerbob/speakerbob.db
+      - SOUNDBACKENDURL=local:///etc/speakerbob/sounds
     volumes:
-      - minio:/data
-    ports:
-      - "9000:9000"
-    environment:
-      MINIO_ACCESS_KEY: speakerbob
-      MINIO_SECRET_KEY: speakerbob
-    command: server /data
+      - speakerbob:/etc/speakerbob
+      - sounds:/etc/speakerbob/sounds
 
 volumes:
-  minio:
+  sounds:
+  speakerbob:

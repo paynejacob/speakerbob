@@ -11,6 +11,13 @@ import (
 
 var backendProtoRegex = regexp.MustCompile("(.*)://.*?")
 
+type Service struct {
+	backend  Backend
+	upgrader websocket.Upgrader
+
+	db *gorm.DB
+}
+
 func NewService(backendURL string, db *gorm.DB) *Service {
 	var backend Backend
 	var upgrader = websocket.Upgrader{}
@@ -18,7 +25,7 @@ func NewService(backendURL string, db *gorm.DB) *Service {
 	if matches := backendProtoRegex.FindStringSubmatch(backendURL); len(matches) > 0 {
 		proto := matches[0]
 		switch proto {
-		case "memory":
+		case "memory://":
 			backend = NewMemoryBackend()
 		default:
 			panic(fmt.Sprintf("\"%s\" is not a valid authentication backend proto", proto))
@@ -26,13 +33,6 @@ func NewService(backendURL string, db *gorm.DB) *Service {
 	}
 
 	return &Service{backend, upgrader, db}
-}
-
-type Service struct {
-	backend  Backend
-	upgrader websocket.Upgrader
-
-	db *gorm.DB
 }
 
 // TODO router register
@@ -72,10 +72,14 @@ func (s *Service) WSConnect(w http.ResponseWriter, r *http.Request) {
 	s.backend.CloseConnection(connection)
 }
 
+func (s *Service) SendMessage(message IMessage) {
+	s.backend.SendMessage(message)
+}
+
 func (s *Service) WSMessageConsumer() {
 	for {
 		for message := range s.backend.Channel() {
-			for _, connection := range s.backend.LocalConnections(message.Channels) {
+			for _, connection := range s.backend.LocalConnections(message.Channels()) {
 				if err := connection.ws.WriteJSON(message); err != nil {
 					s.backend.CloseConnection(connection)
 				}
