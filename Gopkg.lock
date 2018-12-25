@@ -2,6 +2,24 @@
 
 
 [[projects]]
+  name = "cloud.google.com/go"
+  packages = ["civil"]
+  revision = "0ebda48a7f143b1cce9eb37a8c1106ac762a3430"
+  version = "v0.34.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/IBM-Cloud/bluemix-go"
+  packages = [".","bmxerror","endpoints","helpers","session","trace"]
+  revision = "3a2bc4565a2696e0979752db93480fc53bbb23fe"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/denisenkom/go-mssqldb"
+  packages = [".","internal/cp"]
+  revision = "4e0d7dc8888fbb59764060e99b7b68e77a6f9698"
+
+[[projects]]
   name = "github.com/dustin/go-humanize"
   packages = ["."]
   revision = "9f541cc9db5d55bce703bd99987c9d5cb8eea45e"
@@ -39,7 +57,7 @@
 
 [[projects]]
   name = "github.com/jinzhu/gorm"
-  packages = [".","dialects/sqlite"]
+  packages = [".","dialects/mssql","dialects/postgres","dialects/sqlite"]
   revision = "472c70caa40267cb89fd8facb07fe6454b578626"
   version = "v1.9.2"
 
@@ -60,6 +78,12 @@
   packages = ["."]
   revision = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242"
   version = "v1.0.1"
+
+[[projects]]
+  name = "github.com/lib/pq"
+  packages = [".","hstore","oid"]
+  revision = "4ded0e9383f75c197b3a2aaa6d590ac52df6fd79"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/mattn/go-sqlite3"
@@ -106,13 +130,13 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["argon2","bcrypt","blake2b","blowfish","ssh/terminal"]
+  packages = ["argon2","bcrypt","blake2b","blowfish","md4","ssh/terminal"]
   revision = "505ab145d0a99da450461ae2c1a9f6cd10d1f447"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["http/httpguts","idna"]
+  packages = ["http/httpguts","idna","websocket"]
   revision = "927f97764cc334a6575f4b7a1584a147864d5723"
 
 [[projects]]
@@ -130,6 +154,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3041efa10aa3c04d25cf97cd17ad6ee2db3cc3139d7f58eca4d929830f482f87"
+  inputs-digest = "292ea8e46501f66c86d08173c1b20913942b5a6d6edb84a884181880413fe12d"
   solver-name = "gps-cdcl"
   solver-version = 1

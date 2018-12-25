@@ -3,6 +3,7 @@ package sound
 import (
 	"encoding/json"
 	"fmt"
+	bluemix "github.com/IBM-Cloud/bluemix-go/session"
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 	"github.com/thedevsaddam/govalidator"
@@ -14,8 +15,8 @@ import (
 	"strconv"
 )
 
-type BadRequestResponse struct {
-	Message string `json:"websocket"`
+type ErrorResponse struct {
+	Message string `json:"message"`
 }
 
 type ListResponse struct {
@@ -24,7 +25,9 @@ type ListResponse struct {
 	Results []Sound `json:"results"`
 }
 
-type PlaySoundForm struct {
+type SpeakForm struct {
+	Text string `json:"text"`
+	NSFW bool `json:"nsfw"`
 	Channels []string `json:"channels"`
 }
 
@@ -35,9 +38,10 @@ type Service struct {
 
 	db    *gorm.DB
 	wsService    *websocket.Service
+	blueMixSession *bluemix.Session
 }
 
-func NewService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB, wsService *websocket.Service) *Service {
+func NewService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB, wsService *websocket.Service, blueMixSession *bluemix.Session) *Service {
 	var backend Backend
 	parsedUrl, err := url.Parse(backendURL)
 	if err != nil {
@@ -64,7 +68,7 @@ func NewService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB
 	}
 
 	db.AutoMigrate(&Sound{}, &Macro{}, &PositionalSound{})
-	return &Service{backend, pageSize, maxSoundLength, db, wsService}
+	return &Service{backend, pageSize, maxSoundLength, db, wsService, blueMixSession}
 }
 
 func (s *Service) RegisterRoutes(router *mux.Router, subpath string) {
@@ -79,7 +83,7 @@ func (s *Service) RegisterRoutes(router *mux.Router, subpath string) {
 	router.HandleFunc(fmt.Sprintf("%s/macro/{id}", subpath), s.GetMacro).Methods("GET")
 	router.HandleFunc(fmt.Sprintf("%s/macro/{id}/download", subpath), s.DownloadMacro).Methods("GET")
 
-	router.HandleFunc(fmt.Sprintf("%s/speak", subpath), s.DownloadMacro).Methods("GET")
+	router.HandleFunc(fmt.Sprintf("%s/speak", subpath), s.Speak).Methods("POST")
 }
 
 func (s *Service) ListSound(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +133,7 @@ func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		if msg := e.Get("_error"); msg == "unexpected EOF" || msg == "EOF" {
-			_ = json.NewEncoder(w).Encode(BadRequestResponse{"Invalid JSON."})
+			_ = json.NewEncoder(w).Encode(ErrorResponse{"Invalid JSON."})
 		} else {
 			_ = json.NewEncoder(w).Encode(e)
 		}
@@ -151,7 +155,7 @@ func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
 	// validate the file length
 	if length, err := getAudioDuration(tmpFilePath); length > s.maxSoundLength {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(BadRequestResponse{fmt.Sprintf("sound file length may not exceed %d seconds", s.maxSoundLength)})
+		_ = json.NewEncoder(w).Encode(ErrorResponse{fmt.Sprintf("sound file length may not exceed %d seconds", s.maxSoundLength)})
 		return
 	} else if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -183,6 +187,7 @@ func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
 	s.db.Create(&sound)
 
 	// write the response
+	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(sound)
 }
 
@@ -209,8 +214,8 @@ func (s *Service) DownloadSound(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.mp3", id))
-	w.Header().Set("Content-Type", "audio/mpeg")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.wav", id))
+	w.Header().Set("Content-Type", "audio/wav")
 	_, _ = io.Copy(w, file)
 }
 
@@ -230,7 +235,7 @@ func (s *Service) PlaySound(w http.ResponseWriter, r *http.Request)  {
 
 	channelSet := websocket.ChannelSet{}
 	for _, channel := range channels {
-		channelSet.Add(&websocket.Channel{channel})
+		channelSet.Add(&websocket.Channel{Value: channel})
 	}
 
 	message := websocket.NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW)
@@ -255,6 +260,84 @@ func (s *Service) DownloadMacro(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-func (s *Service) TextToSpeech(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+func (s *Service) Speak(w http.ResponseWriter, r *http.Request) {
+	if s.blueMixSession == nil {
+		w.WriteHeader(http.StatusNotImplemented)
+		return
+	}
+
+	// validate form data
+	var data SpeakForm
+	e := govalidator.New(govalidator.Options{
+		Request: r,
+		Data:    &data,
+		Rules: govalidator.MapData{
+			"text": []string{"required"},
+			"nsfw":  []string{},
+			"channels": []string{},
+		},
+	}).ValidateJSON()
+
+	if len(e) != 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+
+		if msg := e.Get("_error"); msg == "unexpected EOF" || msg == "EOF" {
+			_ = json.NewEncoder(w).Encode(ErrorResponse{"Invalid JSON."})
+		} else {
+			_ = json.NewEncoder(w).Encode(e)
+		}
+		return
+	}
+
+	// create channelSet
+	channelSet := websocket.ChannelSet{}
+	if len(data.Channels) ==0 {
+		channelSet.Add(&websocket.Channel{Value: "*"})
+	} else {
+		for _, channel := range data.Channels {
+			channelSet.Add(&websocket.Channel{Value: channel})
+		}
+	}
+
+	// check if sound exists and return it if so
+	sound := Sound{}
+	hashedName := hashSpeakName(data.Text)
+	s.db.Where("name = ?", hashedName).First(&sound)
+	if sound.Id != "" {
+		s.wsService.SendMessage(websocket.NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW))
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(sound)
+		return
+	} else {
+		sound = NewSound(hashedName, data.NSFW, false)
+	}
+
+	// create audio
+	resp, err := s.blueMixSession.Config.HTTPClient.PostForm(
+		"https://gateway-wdc.watsonplatform.net/text-to-speech/api/v1/synthesize",
+		url.Values{
+			"accept": []string{"audio/wav"},
+			"text":   []string{data.Text},
+		})
+
+	// validate audio response
+	if err != nil || (resp.StatusCode < 200 || resp.StatusCode > 299) {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// put sound in backend
+	if err := s.backend.PutSound(sound, resp.Body); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// create sound and send play message
+	s.db.Create(&sound)
+	s.wsService.SendMessage(websocket.NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW))
+
+	// return response
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(sound)
 }

@@ -65,6 +65,7 @@ func serve() {
 
 	config := internal.GetConfig()
 	db := internal.GetDB(config.DBURL)
+	bluemixSession := internal.GetBluemixSession(config.BluemixAPIKey)
 	router := mux.NewRouter()
 	n := negroni.New(negroni.NewRecovery())
 	logger := negroni.NewLogger()
@@ -76,7 +77,7 @@ func serve() {
 	log.Println("creating services")
 	authService := authentication.NewService(config.AuthBackendURL, config.CookieName, config.TokenTTL, db)
 	wsService := websocket.NewService(config.MessageBrokerURL, db)
-	soundService := sound.NewService(config.SoundBackendURL, config.PageSize, config.MaxSoundLength, db, wsService)
+	soundService := sound.NewService(config.SoundBackendURL, config.PageSize, config.MaxSoundLength, db, wsService, bluemixSession)
 
 	log.Print("registering routes")
 	authService.RegisterRoutes(router, "/auth")

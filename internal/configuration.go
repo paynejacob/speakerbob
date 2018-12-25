@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"github.com/IBM-Cloud/bluemix-go"
+	"github.com/IBM-Cloud/bluemix-go/session"
 	"github.com/jinzhu/gorm"
 	"github.com/kelseyhightower/envconfig"
 	"log"
@@ -22,6 +24,7 @@ type Config struct {
 	AuthBackendURL   string `default:"memory://"`
 	MessageBrokerURL string `default:"memory://"`
 	SoundBackendURL string `default:"local:///etc/speakerbob/sounds"`
+	BluemixAPIKey string `default:""`
 
 	SoundBucketName string `default:"sbsounds"`
 
@@ -55,4 +58,17 @@ func GetDB(dbURL string) *gorm.DB {
 	}
 
 	return db
+}
+
+func GetBluemixSession(bluemixAPIKey string) *session.Session {
+	if bluemixAPIKey != "" {
+		return nil
+	}
+	sess, err := session.New(&bluemix.Config{BluemixAPIKey: bluemixAPIKey})
+
+	if err != nil {
+		log.Fatalf("failed to configure bluemix session: %v", err)
+	}
+
+	return sess
 }
