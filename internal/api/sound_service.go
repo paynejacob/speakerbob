@@ -3,10 +3,10 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	bluemix "github.com/IBM-Cloud/bluemix-go/session"
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 	"github.com/thedevsaddam/govalidator"
+	"github.com/watson-developer-cloud/go-sdk/texttospeechv1"
 	"io"
 	"net/http"
 	"net/url"
@@ -52,10 +52,10 @@ type SoundService struct {
 	db             *gorm.DB
 	wsService      *WebsocketService
 	searchService  *SearchService
-	blueMixSession *bluemix.Session
+	bluemixKey string
 }
 
-func NewSoundService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB, wsService *WebsocketService, searchService *SearchService, blueMixSession *bluemix.Session) *SoundService {
+func NewSoundService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB, wsService *WebsocketService, searchService *SearchService, bluemixKey string) *SoundService {
 	var backend SoundBackend
 	parsedUrl, err := url.Parse(backendURL)
 	if err != nil {
@@ -82,7 +82,7 @@ func NewSoundService(backendURL string, pageSize int, maxSoundLength int, db *go
 	}
 
 	db.AutoMigrate(&Sound{}, &Macro{}, &PositionalSound{})
-	return &SoundService{backend, pageSize, maxSoundLength, db, wsService, searchService, blueMixSession}
+	return &SoundService{backend, pageSize, maxSoundLength, db, wsService, searchService, bluemixKey}
 }
 
 func (s *SoundService) RegisterRoutes(parent *mux.Router, prefix string) *mux.Router {
@@ -111,8 +111,8 @@ func (s *SoundService) ListSound(w http.ResponseWriter, r *http.Request) {
 		resp.Offset, _ = strconv.Atoi(offsetStr[0])
 	}
 
-	s.db.Model(&Sound{}).Where("visible = ?", true).Count(&resp.Count)
-	s.db.Limit(s.pageSize).Offset(resp.Offset).Find(&resp.Results)
+	s.db.Model(&Sound{}).Where("visible = true").Count(&resp.Count)
+	s.db.Where("visible = true").Limit(s.pageSize).Offset(resp.Offset).Find(&resp.Results)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
@@ -291,7 +291,7 @@ func (s *SoundService) DownloadMacro(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *SoundService) Speak(w http.ResponseWriter, r *http.Request) {
-	if s.blueMixSession == nil {
+	if s.bluemixKey == "" {
 		w.WriteHeader(http.StatusNotImplemented)
 		return
 	}
@@ -343,13 +343,18 @@ func (s *SoundService) Speak(w http.ResponseWriter, r *http.Request) {
 		sound = NewSound(hashedName, data.NSFW, false)
 	}
 
-	// create audio
-	resp, err := s.blueMixSession.Config.HTTPClient.PostForm(
-		"https://gateway-wdc.watsonplatform.net/text-to-speech/api/v1/synthesize",
-		url.Values{
-			"accept": []string{"audio/wav"},
-			"text":   []string{data.Text},
-		})
+
+	textToSpeech, err := texttospeechv1.NewTextToSpeechV1(&texttospeechv1.TextToSpeechV1Options{
+		IAMApiKey: s.bluemixKey,
+		URL: "https://gateway-wdc.watsonplatform.net/text-to-speech/api",
+	})
+
+	format := "audio/wav"
+
+	resp, err := textToSpeech.Synthesize(&texttospeechv1.SynthesizeOptions{
+		Text:   &data.Text,
+		Accept: &format,
+	})
 
 	// validate audio response
 	if err != nil || (resp.StatusCode < 200 || resp.StatusCode > 299) {
@@ -357,17 +362,21 @@ func (s *SoundService) Speak(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+
 	// put sound in backend
-	if err := s.backend.PutSound(sound, resp.Body); err != nil {
+	if err := s.backend.PutSound(sound, textToSpeech.GetSynthesizeResult(resp)); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	// create sound and send play message
 	s.db.Create(&sound)
+	sound.Visible = false
+	s.db.Save(&sound)
 	s.wsService.SendMessage(NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW))
 
 	// return response
+	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(sound)
 }
