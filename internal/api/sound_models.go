@@ -13,7 +13,7 @@ type Sound struct {
 	Name      string `gorm:"unique;index" json:"name"`
 	Duration  int    `gorm:"default:0" json:"duration"`
 	NSFW      bool   `gorm:"default:false" json:"nsfw"`
-	Visible   bool   `gorm:"default:true" json:"visible"`
+	Visible   bool   `gorm:"default:false" json:"visible"`
 	PlayCount int    `gorm:"default:0" json:"play_count"`
 }
 

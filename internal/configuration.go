@@ -1,12 +1,10 @@
 package internal
 
 import (
-	"github.com/IBM-Cloud/bluemix-go"
-	"github.com/IBM-Cloud/bluemix-go/session"
 	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/mysql" // ensure gorm supports mysql
+	_ "github.com/jinzhu/gorm/dialects/mysql"    // ensure gorm supports mysql
 	_ "github.com/jinzhu/gorm/dialects/postgres" // ensure gorm supports pg
-	_ "github.com/jinzhu/gorm/dialects/sqlite"  // ensure gorm supports sqlite
+	_ "github.com/jinzhu/gorm/dialects/sqlite"   // ensure gorm supports sqlite
 	"github.com/kelseyhightower/envconfig"
 	"log"
 	"net/url"
@@ -59,17 +57,4 @@ func GetDB(dbURL string) *gorm.DB {
 	}
 
 	return db
-}
-
-func GetBluemixSession(bluemixAPIKey string) *session.Session {
-	if bluemixAPIKey != "" {
-		return nil
-	}
-	sess, err := session.New(&bluemix.Config{BluemixAPIKey: bluemixAPIKey})
-
-	if err != nil {
-		log.Fatalf("failed to configure bluemix session: %v", err)
-	}
-
-	return sess
 }

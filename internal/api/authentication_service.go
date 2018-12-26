@@ -68,16 +68,18 @@ func (s *AuthenticationService) RegisterRoutes(parent *mux.Router, prefix string
 
 func (s *AuthenticationService) AuthenticationMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var token string
 		cookie, err := r.Cookie(s.cookieName)
 
 		// Fail if no cookie is found or the cookie value does not exist in redis
 		if err != nil {
-			w.WriteHeader(http.StatusForbidden)
-			return
+			token = ""
+		} else {
+			token = cookie.Value
 		}
 
 
-		if _, err := s.backend.UserId(r.RemoteAddr, cookie.Value); err != nil {
+		if _, err := s.backend.UserId(r.RemoteAddr, token); err != nil {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}

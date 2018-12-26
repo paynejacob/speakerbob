@@ -2,10 +2,10 @@
 
 
 [[projects]]
-  branch = "master"
-  name = "github.com/IBM-Cloud/bluemix-go"
-  packages = [".","bmxerror","endpoints","helpers","session","trace"]
-  revision = "3a2bc4565a2696e0979752db93480fc53bbb23fe"
+  name = "github.com/cloudfoundry-community/go-cfenv"
+  packages = ["."]
+  revision = "f920e9562d5f951cbf11785728f67258c38a10d0"
+  version = "v1.17.0"
 
 [[projects]]
   name = "github.com/dustin/go-humanize"
@@ -18,6 +18,18 @@
   packages = ["."]
   revision = "f55231ca73a76c1d61eb05fe0d64a1ccebf93cba"
   version = "v1.39.3"
+
+[[projects]]
+  name = "github.com/go-playground/locales"
+  packages = [".","currency"]
+  revision = "f63010822830b6fe52288ee52d5a1151088ce039"
+  version = "v0.12.1"
+
+[[projects]]
+  name = "github.com/go-playground/universal-translator"
+  packages = ["."]
+  revision = "b32fa301c9fe55953584134cb6853a13c87ec0a1"
+  version = "v0.16.0"
 
 [[projects]]
   name = "github.com/go-sql-driver/mysql"
@@ -74,6 +86,12 @@
   version = "v1.0.1"
 
 [[projects]]
+  name = "github.com/leodido/go-urn"
+  packages = ["."]
+  revision = "70078a794e8ea4b497ba7c19a78cd60f90ccf0f4"
+  version = "v1.1.0"
+
+[[projects]]
   name = "github.com/lib/pq"
   packages = [".","hstore","oid"]
   revision = "4ded0e9383f75c197b3a2aaa6d590ac52df6fd79"
@@ -96,6 +114,12 @@
   packages = ["."]
   revision = "ae18d6b8b3205b561c79e8e5f69bff09736185f4"
   version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/mitchellh/mapstructure"
+  packages = ["."]
+  revision = "3536a929edddb9a5b34bd6861dc4a9647cb459fe"
+  version = "v1.1.2"
 
 [[projects]]
   name = "github.com/sirupsen/logrus"
@@ -122,6 +146,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/watson-developer-cloud/go-sdk"
+  packages = ["core","texttospeechv1"]
+  revision = "aea060ccffeaf01a550908ef0d0f6ea5bc02b794"
+  version = "v0.2.0"
+
+[[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["argon2","bcrypt","blake2b","blowfish","ssh/terminal"]
@@ -130,7 +160,7 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["http/httpguts","idna","websocket"]
+  packages = ["http/httpguts","idna"]
   revision = "927f97764cc334a6575f4b7a1584a147864d5723"
 
 [[projects]]
@@ -151,9 +181,15 @@
   revision = "e9657d882bb81064595ca3b56cbe2546bbabf7b1"
   version = "v1.4.0"
 
+[[projects]]
+  name = "gopkg.in/go-playground/validator.v9"
+  packages = ["."]
+  revision = "0277b12d53df79c9dbf7311cb07fa9c81ed621bb"
+  version = "v9.24.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "dee768752f8819ba5d146745b06705777d0ffe0fd74b3e5e8dfdd1f67558ad1f"
+  inputs-digest = "28e63715fbe5400ff37f1f7f11600d97d9e5cfc7d7e760471b327197f2ddf574"
   solver-name = "gps-cdcl"
   solver-version = 1
