@@ -70,7 +70,7 @@ func NewMinioBackend(url string, accessID string, accessKey string, useSSL bool,
 		panic("failed to configure minio")
 	}
 	ensureBucket(bucketName, client)
-	return &MinioBackend{bucketName,client}
+	return &MinioBackend{bucketName, client}
 }
 
 func (b MinioBackend) ServeRedirect() bool {

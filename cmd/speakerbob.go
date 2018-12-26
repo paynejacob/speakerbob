@@ -11,6 +11,7 @@ import (
 	"os"
 	"speakerbob/internal"
 	"speakerbob/internal/authentication"
+	"speakerbob/internal/search"
 	"speakerbob/internal/sound"
 	"speakerbob/internal/websocket"
 )
@@ -75,13 +76,16 @@ func serve() {
 	n.Use(logger)
 
 	log.Println("creating services")
-	authService := authentication.NewService(config.AuthBackendURL, config.CookieName, config.TokenTTL, db)
 	wsService := websocket.NewService(config.MessageBrokerURL, db)
-	soundService := sound.NewService(config.SoundBackendURL, config.PageSize, config.MaxSoundLength, db, wsService, bluemixSession)
+	searchService := search.NewService(config.SearchBackendURL)
+	authService := authentication.NewService(config.AuthBackendURL, config.CookieName, config.TokenTTL, db)
+	soundService := sound.NewService(config.SoundBackendURL, config.PageSize, config.MaxSoundLength, db, wsService, searchService, bluemixSession)
 
 	log.Print("registering routes")
 	authService.RegisterRoutes(router, "/auth")
 	soundService.RegisterRoutes(router, "/api")
+	searchService.RegisterRoutes(router, "/api")
+	wsService.RegisterRoutes(router, "/api")
 	router.Handle("/", http.FileServer(http.Dir("/etc/speakerbob/assets")))
 
 	log.Print("starting ws consumer")

@@ -4,13 +4,13 @@ import (
 	"github.com/IBM-Cloud/bluemix-go"
 	"github.com/IBM-Cloud/bluemix-go/session"
 	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/mssql"
+	_ "github.com/jinzhu/gorm/dialects/postgres"
+	_ "github.com/jinzhu/gorm/dialects/sqlite"
 	"github.com/kelseyhightower/envconfig"
 	"log"
 	"net/url"
 	"time"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
-	_ "github.com/jinzhu/gorm/dialects/mssql"
 )
 
 type Config struct {
@@ -20,11 +20,12 @@ type Config struct {
 	Host string `default:"0.0.0.0"`
 	Port int    `default:"80"`
 
-	DBURL string `default:"sqlite3:///etc/speakerbob/speakerbob.db"`
+	DBURL            string `default:"sqlite3:///etc/speakerbob/speakerbob.db"`
 	AuthBackendURL   string `default:"memory://"`
+	SearchBackendURL string `default:"memory://"`
 	MessageBrokerURL string `default:"memory://"`
-	SoundBackendURL string `default:"local:///etc/speakerbob/sounds"`
-	BluemixAPIKey string `default:""`
+	SoundBackendURL  string `default:"local:///etc/speakerbob/sounds"`
+	BluemixAPIKey    string `default:""`
 
 	SoundBucketName string `default:"sbsounds"`
 

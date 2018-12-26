@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"speakerbob/internal/search"
 	"speakerbob/internal/websocket"
 	"strconv"
 )
@@ -26,22 +27,41 @@ type ListResponse struct {
 }
 
 type SpeakForm struct {
-	Text string `json:"text"`
-	NSFW bool `json:"nsfw"`
+	Text     string   `json:"text"`
+	NSFW     bool     `json:"nsfw"`
 	Channels []string `json:"channels"`
 }
 
-type Service struct {
-	backend Backend
-	pageSize        int
-	maxSoundLength  int
+type SearchResult Sound
 
-	db    *gorm.DB
-	wsService    *websocket.Service
+func (SearchResult) Type() string {
+	return "sound"
+}
+
+func (r SearchResult) Key() string {
+	return r.Id
+}
+
+func (r SearchResult) IndexValue() string {
+	return r.Name
+}
+
+func (r SearchResult) Object() interface{} {
+	return r
+}
+
+type Service struct {
+	backend        Backend
+	pageSize       int
+	maxSoundLength int
+
+	db             *gorm.DB
+	wsService      *websocket.Service
+	searchService  *search.Service
 	blueMixSession *bluemix.Session
 }
 
-func NewService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB, wsService *websocket.Service, blueMixSession *bluemix.Session) *Service {
+func NewService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB, wsService *websocket.Service, searchService *search.Service, blueMixSession *bluemix.Session) *Service {
 	var backend Backend
 	parsedUrl, err := url.Parse(backendURL)
 	if err != nil {
@@ -68,7 +88,7 @@ func NewService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB
 	}
 
 	db.AutoMigrate(&Sound{}, &Macro{}, &PositionalSound{})
-	return &Service{backend, pageSize, maxSoundLength, db, wsService, blueMixSession}
+	return &Service{backend, pageSize, maxSoundLength, db, wsService, searchService, blueMixSession}
 }
 
 func (s *Service) RegisterRoutes(router *mux.Router, subpath string) {
@@ -186,6 +206,9 @@ func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
 	// create the db record
 	s.db.Create(&sound)
 
+	// update the search index
+	_ = s.searchService.UpdateResult(SearchResult(sound))
+
 	// write the response
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(sound)
@@ -219,7 +242,7 @@ func (s *Service) DownloadSound(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, file)
 }
 
-func (s *Service) PlaySound(w http.ResponseWriter, r *http.Request)  {
+func (s *Service) PlaySound(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	var sound Sound
 
@@ -244,7 +267,7 @@ func (s *Service) PlaySound(w http.ResponseWriter, r *http.Request)  {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Service) ListMacro(w http.ResponseWriter, r *http.Request)  {
+func (s *Service) ListMacro(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -272,8 +295,8 @@ func (s *Service) Speak(w http.ResponseWriter, r *http.Request) {
 		Request: r,
 		Data:    &data,
 		Rules: govalidator.MapData{
-			"text": []string{"required"},
-			"nsfw":  []string{},
+			"text":     []string{"required"},
+			"nsfw":     []string{},
 			"channels": []string{},
 		},
 	}).ValidateJSON()
@@ -292,7 +315,7 @@ func (s *Service) Speak(w http.ResponseWriter, r *http.Request) {
 
 	// create channelSet
 	channelSet := websocket.ChannelSet{}
-	if len(data.Channels) ==0 {
+	if len(data.Channels) == 0 {
 		channelSet.Add(&websocket.Channel{Value: "*"})
 	} else {
 		for _, channel := range data.Channels {

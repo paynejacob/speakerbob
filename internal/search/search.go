@@ -3,17 +3,46 @@ package search
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
 	"net/http"
+	"net/url"
 	"strconv"
 )
+
+type DisplayResult struct {
+	Type   string      `json:"type"`
+	Result interface{} `json:"result"`
+}
 
 type Service struct {
 	backend Backend
 }
 
+func NewService(backendURL string) *Service {
+	var backend Backend
+	parsedUrl, err := url.Parse(backendURL)
+	if err != nil {
+		panic("invalid backend url")
+	}
+
+	switch parsedUrl.Scheme {
+	case "memory":
+		backend = NewMemoryBackend()
+	default:
+		panic(fmt.Sprintf("\"%s\" is not a valid search backend url", parsedUrl.Scheme))
+	}
+
+	return &Service{backend}
+}
+
+func (s *Service) RegisterRoutes(router *mux.Router, subpath string) {
+	router.HandleFunc(fmt.Sprintf("%s/search", subpath), s.Search).Methods("GET")
+}
+
 func (s *Service) Search(w http.ResponseWriter, r *http.Request) {
 	count := 100
 	var query string
+	var displayResults []DisplayResult
 
 	if queryString, ok := r.URL.Query()["query"]; ok {
 		query = queryString[0]
@@ -28,11 +57,19 @@ func (s *Service) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results := s.backend.Search(query, count)
-
-	_, _ = w.Write([]byte("["))
-	for result := range results {
-		_, _ = w.Write([]byte(fmt.Sprintf("%s,", result)))
+	results, err := s.backend.Search(query, count)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-	_, _ = w.Write([]byte("]"))
+
+	for _, result := range results {
+		displayResults = append(displayResults, DisplayResult{result.Type(), result.Object()})
+	}
+
+	_ = json.NewEncoder(w).Encode(displayResults)
+}
+
+func (s *Service) UpdateResult(result Result) error {
+	return s.backend.UpdateResult(result)
 }

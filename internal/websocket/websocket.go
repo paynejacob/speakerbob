@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"fmt"
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/jinzhu/gorm"
 	"net/http"
@@ -35,7 +36,9 @@ func NewService(backendURL string, db *gorm.DB) *Service {
 	return &Service{backend, upgrader, db}
 }
 
-// TODO router register
+func (s *Service) RegisterRoutes(router *mux.Router, subpath string) {
+	router.HandleFunc(fmt.Sprintf("%s/ws", subpath), s.WSConnect).Methods("GET")
+}
 
 func (s *Service) WSConnect(w http.ResponseWriter, r *http.Request) {
 	var channels ChannelSet

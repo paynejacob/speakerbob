@@ -1,81 +1,44 @@
 package search
 
-import (
-	"hash/fnv"
-)
-
-type ResultSet map[uint64]string
-
-func (s ResultSet) Add(key string, value string) {
-	h := fnv.New64()
-	_, _ = h.Write([]byte(key))
-
-	s[h.Sum64()] = value
-}
-
-func (s ResultSet) Remove(key string) {
-	h := fnv.New64()
-	_, _ = h.Write([]byte(key))
-
-	s[h.Sum64()] = key
-	delete(s, h.Sum64())
-}
-
-func (s ResultSet) Union(b ResultSet) ResultSet {
-	newSet := ResultSet{}
-
-	for hash, conn := range s {
-		newSet[hash] = conn
-	}
-
-	for hash, conn := range b {
-		newSet[hash] = conn
-	}
-
-	return newSet
-}
-
-func (s ResultSet) Values() []string {
-	values := make([]string, len(s))
-
-	for _, value := range s {
-		values = append(values, value)
-	}
-
-	return values
-}
-
-func (s ResultSet) Empty() bool {
-	return len(s) > 0
+type Result interface {
+	Type() string
+	Key() string
+	IndexValue() string
+	Object() interface{}
 }
 
 type Backend interface {
-	Update(key string, value string)
-	Remove(key string)
-	Search(query string, n int) []string
+	UpdateResult(value Result) error
+	Remove(key string) error
+	Search(query string, n int) ([]Result, error)
 }
 
 type MemoryBackend struct {
-	index map[string]ResultSet
+	values map[string]Result
+	index  map[string]Set
 }
 
 func NewMemoryBackend() *MemoryBackend {
-	return &MemoryBackend{index: make(map[string]ResultSet)}
+	return &MemoryBackend{index: make(map[string]Set)}
 }
 
-func (b MemoryBackend) Update(key string, value string) {
-	for i := 0; i < len(key); i++ {
-		subKey := key[:i]
+func (b MemoryBackend) UpdateResult(value Result) error {
+	for i := 0; i < len(value.IndexValue()); i++ {
+		subKey := value.IndexValue()[:i]
 
 		if _, ok := b.index[subKey]; !ok {
-			b.index[subKey] = ResultSet{}
+			b.index[subKey] = Set{}
 		}
 
-		b.index[subKey].Add(key, value)
+		b.index[subKey].Add(value.Key())
 	}
+
+	b.values[value.Key()] = value
+
+	return nil
 }
 
-func (b MemoryBackend) Remove(key string) {
+func (b MemoryBackend) Remove(key string) error {
 	for i := 0; i < len(key); i++ {
 		subKey := key[:i]
 
@@ -87,16 +50,27 @@ func (b MemoryBackend) Remove(key string) {
 			}
 		}
 	}
+
+	delete(b.values, key)
+
+	return nil
 }
 
-func (b MemoryBackend) Search(query string, n int) []string {
+func (b MemoryBackend) Search(query string, n int) ([]Result, error) {
+	var keys []string
+	var results []Result
+
 	if rs, ok := b.index[query]; ok {
 		if len(rs) > n {
-			return rs.Values()[:n]
+			keys = rs.Values()[:n]
+		} else {
+			keys = rs.Values()
 		}
-		return rs.Values()
+
+		for _, k := range keys {
+			results = append(results, b.values[k])
+		}
 	}
 
-	return []string{}
+	return results, nil
 }
-
