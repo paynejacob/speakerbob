@@ -6,6 +6,7 @@
       <env name="PORT" value="8090" />
       <env name="DBURL" value="sqlite3:///tmp/speakerbob.db" />
       <env name="SOUNDBACKENDURL" value="local:///tmp/sbsounds" />
+      <env name="AUTHBACKENDURL" value="" />
     </envs>
     <kind value="FILE" />
     <filePath value="$PROJECT_DIR$/cmd/speakerbob.go" />

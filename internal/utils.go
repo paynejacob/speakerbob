@@ -1,6 +1,8 @@
-package search
+package internal
 
-import "hash/fnv"
+import (
+	"hash/fnv"
+)
 
 type Set map[uint64]string
 

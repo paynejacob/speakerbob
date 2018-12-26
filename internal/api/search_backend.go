@@ -1,4 +1,6 @@
-package search
+package api
+
+import "speakerbob/internal"
 
 type Result interface {
 	Type() string
@@ -7,27 +9,27 @@ type Result interface {
 	Object() interface{}
 }
 
-type Backend interface {
+type SearchBackend interface {
 	UpdateResult(value Result) error
 	Remove(key string) error
 	Search(query string, n int) ([]Result, error)
 }
 
-type MemoryBackend struct {
+type SearchMemoryBackend struct {
 	values map[string]Result
-	index  map[string]Set
+	index  map[string]internal.Set
 }
 
-func NewMemoryBackend() *MemoryBackend {
-	return &MemoryBackend{values: make(map[string]Result, 0), index: make(map[string]Set, 0)}
+func NewSearchMemoryBackend() *SearchMemoryBackend {
+	return &SearchMemoryBackend{values: make(map[string]Result, 0), index: make(map[string]internal.Set, 0)}
 }
 
-func (b MemoryBackend) UpdateResult(value Result) error {
+func (b SearchMemoryBackend) UpdateResult(value Result) error {
 	for i := 1; i < len(value.IndexValue()); i++ {
 		subKey := value.IndexValue()[:i]
 
 		if _, ok := b.index[subKey]; !ok {
-			b.index[subKey] = Set{}
+			b.index[subKey] = internal.Set{}
 		}
 
 		b.index[subKey].Add(value.Key())
@@ -38,7 +40,7 @@ func (b MemoryBackend) UpdateResult(value Result) error {
 	return nil
 }
 
-func (b MemoryBackend) Remove(key string) error {
+func (b SearchMemoryBackend) Remove(key string) error {
 	for i := 0; i < len(key); i++ {
 		subKey := key[:i]
 
@@ -56,7 +58,7 @@ func (b MemoryBackend) Remove(key string) error {
 	return nil
 }
 
-func (b MemoryBackend) Search(query string, n int) ([]Result, error) {
+func (b SearchMemoryBackend) Search(query string, n int) ([]Result, error) {
 	keys := make([]string, 0)
 	results := make([]Result, 0)
 

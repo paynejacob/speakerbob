@@ -1,4 +1,4 @@
-package authentication
+package api
 
 import (
 	"github.com/google/uuid"

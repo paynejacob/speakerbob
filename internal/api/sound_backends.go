@@ -1,4 +1,4 @@
-package sound
+package api
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	"path"
 )
 
-type Backend interface {
+type SoundBackend interface {
 	ServeRedirect() bool
 	PutSound(sound Sound, file io.Reader) error
 	GetSound(sound Sound) (io.Reader, error)
@@ -17,20 +17,20 @@ type Backend interface {
 	RemoveSound(sound Sound) error
 }
 
-type LocalBackend struct {
+type SoundLocalBackend struct {
 	Directory string
 }
 
-func NewlocalBackend(directory string) *LocalBackend {
+func NewSoundLocalBackend(directory string) *SoundLocalBackend {
 	_ = os.MkdirAll(directory, os.ModePerm)
-	return &LocalBackend{directory}
+	return &SoundLocalBackend{directory}
 }
 
-func (b LocalBackend) ServeRedirect() bool {
+func (b SoundLocalBackend) ServeRedirect() bool {
 	return false
 }
 
-func (b LocalBackend) PutSound(sound Sound, file io.Reader) error {
+func (b SoundLocalBackend) PutSound(sound Sound, file io.Reader) error {
 	newFile, err := os.Create(path.Join(b.Directory, sound.Id))
 	if err != nil {
 		return err
@@ -43,7 +43,7 @@ func (b LocalBackend) PutSound(sound Sound, file io.Reader) error {
 	return nil
 }
 
-func (b LocalBackend) GetSound(sound Sound) (io.Reader, error) {
+func (b SoundLocalBackend) GetSound(sound Sound) (io.Reader, error) {
 	if file, err := os.Open(path.Join(b.Directory, sound.Id)); err != nil {
 		return nil, err
 	} else {
@@ -51,34 +51,34 @@ func (b LocalBackend) GetSound(sound Sound) (io.Reader, error) {
 	}
 }
 
-func (b LocalBackend) RedirectSound(sound Sound, w http.ResponseWriter, r *http.Request) error {
+func (b SoundLocalBackend) RedirectSound(sound Sound, w http.ResponseWriter, r *http.Request) error {
 	return errors.New("not implemented")
 }
 
-func (b LocalBackend) RemoveSound(sound Sound) error {
+func (b SoundLocalBackend) RemoveSound(sound Sound) error {
 	return os.Remove(path.Join(b.Directory, sound.Id))
 }
 
-type MinioBackend struct {
+type SoundMinioBackend struct {
 	bucketName string
 
 	minioClient *minio.Client
 }
 
-func NewMinioBackend(url string, accessID string, accessKey string, useSSL bool, bucketName string) *MinioBackend {
+func NewSoundMinioBackend(url string, accessID string, accessKey string, useSSL bool, bucketName string) *SoundMinioBackend {
 	client, err := minio.New(url, accessID, accessKey, useSSL)
 	if err != nil {
 		panic("failed to configure minio")
 	}
 	ensureBucket(bucketName, client)
-	return &MinioBackend{bucketName, client}
+	return &SoundMinioBackend{bucketName, client}
 }
 
-func (b MinioBackend) ServeRedirect() bool {
+func (b SoundMinioBackend) ServeRedirect() bool {
 	return true
 }
 
-func (b MinioBackend) PutSound(sound Sound, file io.Reader) error {
+func (b SoundMinioBackend) PutSound(sound Sound, file io.Reader) error {
 	if _, err := b.minioClient.PutObject(b.bucketName, sound.Id, file, -1, minio.PutObjectOptions{}); err != nil {
 		return err
 	}
@@ -86,11 +86,11 @@ func (b MinioBackend) PutSound(sound Sound, file io.Reader) error {
 	return nil
 }
 
-func (b MinioBackend) GetSound(sound Sound) (io.Reader, error) {
+func (b SoundMinioBackend) GetSound(sound Sound) (io.Reader, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (b MinioBackend) RedirectSound(sound Sound, w http.ResponseWriter, r *http.Request) error {
+func (b SoundMinioBackend) RedirectSound(sound Sound, w http.ResponseWriter, r *http.Request) error {
 	if redirURL, err := b.minioClient.PresignedGetObject(b.bucketName, sound.Id, 60, nil); err != nil {
 		return err
 	} else {
@@ -100,6 +100,6 @@ func (b MinioBackend) RedirectSound(sound Sound, w http.ResponseWriter, r *http.
 	return nil
 }
 
-func (b MinioBackend) RemoveSound(sound Sound) error {
+func (b SoundMinioBackend) RemoveSound(sound Sound) error {
 	return b.minioClient.RemoveObject(b.bucketName, sound.Id)
 }

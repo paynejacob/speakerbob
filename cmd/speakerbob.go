@@ -10,10 +10,7 @@ import (
 	"net/http"
 	"os"
 	"speakerbob/internal"
-	"speakerbob/internal/authentication"
-	"speakerbob/internal/search"
-	"speakerbob/internal/sound"
-	"speakerbob/internal/websocket"
+	"speakerbob/internal/api"
 )
 
 func main() {
@@ -41,7 +38,7 @@ func main() {
 				cli.StringFlag{Name: "password", Usage: "the new user's password"},
 			},
 			Action: func(c *cli.Context) error {
-				var user = authentication.NewUser(c.Args().Get(0), c.Args().Get(1), c.Args().Get(0))
+				var user = api.NewUser(c.Args().Get(0), c.Args().Get(1), c.Args().Get(0))
 				config := internal.GetConfig()
 				db := internal.GetDB(config.DBURL)
 				if err := db.Create(&user).Error; err != nil {
@@ -76,16 +73,16 @@ func serve() {
 	n.Use(logger)
 
 	log.Println("creating services")
-	wsService := websocket.NewService(config.MessageBrokerURL, db)
-	searchService := search.NewService(config.SearchBackendURL)
-	authService := authentication.NewService(config.AuthBackendURL, config.CookieName, config.TokenTTL, db)
-	soundService := sound.NewService(config.SoundBackendURL, config.PageSize, config.MaxSoundLength, db, wsService, searchService, bluemixSession)
+	wsService := api.NewWebsocketService(config.MessageBrokerURL, db)
+	searchService := api.NewSearchService(config.SearchBackendURL)
+	authService := api.NewAuthenticationService(config.AuthBackendURL, config.CookieName, config.TokenTTL, db)
+	soundService := api.NewSoundService(config.SoundBackendURL, config.PageSize, config.MaxSoundLength, db, wsService, searchService, bluemixSession)
 
 	log.Print("registering routes")
 	authService.RegisterRoutes(router, "/auth")
-	soundService.RegisterRoutes(router, "/api")
-	searchService.RegisterRoutes(router, "/api")
-	wsService.RegisterRoutes(router, "/api")
+	searchService.RegisterRoutes(router, "/api/search").Use(authService.AuthenticationMiddleware)
+	soundService.RegisterRoutes(router, "/api/sound").Use(authService.AuthenticationMiddleware)
+	wsService.RegisterRoutes(router, "/api/ws").Use(authService.AuthenticationMiddleware)
 	router.Handle("/", http.FileServer(http.Dir("/etc/speakerbob/assets")))
 
 	log.Print("starting ws consumer")

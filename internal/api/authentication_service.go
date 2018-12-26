@@ -1,7 +1,6 @@
-package authentication
+package api
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -9,6 +8,7 @@ import (
 	"github.com/thedevsaddam/govalidator"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"time"
 )
@@ -28,57 +28,65 @@ type LoginForm struct {
 	Password string `json:"password"`
 }
 
-func NewService(backendURL string, cookieName string, ttl time.Duration, db *gorm.DB) *Service {
-	var backend Backend
 
-	if matches := backendProtoRegex.FindStringSubmatch(backendURL); len(matches) > 0 {
-		proto := matches[0]
-		switch proto {
-		case "memory://":
-			backend = NewMemoryBackend(ttl)
-		default:
-			panic(fmt.Sprintf("\"%s\" is not a valid authentication backend proto", proto))
-		}
-	}
-
-	db.AutoMigrate(&User{})
-
-	return &Service{backend, cookieName, db}
-}
-
-type Service struct {
-	backend    Backend
+type AuthenticationService struct {
+	backend    AuthenticationBackend
 	cookieName string
 
 	db *gorm.DB
 }
 
-func (s *Service) RegisterRoutes(router *mux.Router, subpath string) {
-	router.HandleFunc(fmt.Sprintf("%s/login", subpath), s.Login).Methods("POST")
-	router.HandleFunc(fmt.Sprintf("%s/logout", subpath), s.Logout).Methods("GET")
-}
-
-func (s *Service) AuthenticationMiddleware(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	cookie, err := r.Cookie(s.cookieName)
-
-	// Fail if no cookie is found or the cookie value does not exist in redis
+func NewAuthenticationService(backendURL string, cookieName string, ttl time.Duration, db *gorm.DB) *AuthenticationService {
+	var backend AuthenticationBackend
+	parsedUrl, err := url.Parse(backendURL)
 	if err != nil {
-		rw.WriteHeader(http.StatusForbidden)
-		return
+		panic("invalid backend url")
 	}
 
-	userId, _ := s.backend.UserId(r.RemoteAddr, cookie.Value)
-	if userId == "" {
-		rw.WriteHeader(http.StatusForbidden)
-		return
+	switch parsedUrl.Scheme {
+	case "memory":
+		backend = NewAuthenticationMemoryBackend(ttl)
+	case "":
+		backend = NewAuthenticationNoopBackend(ttl)
+	default:
+		panic(fmt.Sprintf("\"%s\" is not a valid authentication backend proto", parsedUrl.Scheme))
 	}
 
-	ctx := context.WithValue(r.Context(), "userId", userId)
+	db.AutoMigrate(&User{})
 
-	next(rw, r.WithContext(ctx))
+	return &AuthenticationService{backend, cookieName, db}
 }
 
-func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
+func (s *AuthenticationService) RegisterRoutes(parent *mux.Router, prefix string) *mux.Router {
+	router := parent.PathPrefix(prefix).Subrouter()
+
+	router.HandleFunc("/login", s.Login).Methods("POST")
+	router.HandleFunc("/logout", s.Logout).Methods("GET")
+
+	return router
+}
+
+func (s *AuthenticationService) AuthenticationMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie(s.cookieName)
+
+		// Fail if no cookie is found or the cookie value does not exist in redis
+		if err != nil {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+
+		if _, err := s.backend.UserId(r.RemoteAddr, cookie.Value); err != nil {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *AuthenticationService) Login(w http.ResponseWriter, r *http.Request) {
 	// short circuit if we are already logged in
 	if c, _ := r.Cookie(s.cookieName); c != nil {
 		if _, err := s.backend.UserId(r.RemoteAddr, c.Value); err == nil {
@@ -155,7 +163,7 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(""))
 }
 
-func (s *Service) Logout(w http.ResponseWriter, r *http.Request) {
+func (s *AuthenticationService) Logout(w http.ResponseWriter, r *http.Request) {
 	// if a cookie is not set then there is no work
 	if cookie, err := r.Cookie(s.cookieName); err != http.ErrNoCookie {
 		s.backend.InvalidateToken(r.RemoteAddr, cookie.Value)
@@ -164,14 +172,14 @@ func (s *Service) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Service) ListUser(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+func (s *AuthenticationService) ListUser(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)  // TODO
 }
 
-func (s *Service) GetUser(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+func (s *AuthenticationService) GetUser(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)  // TODO
 }
 
-func (s *Service) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+func (s *AuthenticationService) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)  // TODO
 }

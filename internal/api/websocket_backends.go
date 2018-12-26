@@ -1,17 +1,16 @@
-package websocket
+package api
 
 import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"hash/fnv"
-	"speakerbob/internal/authentication"
 	"strings"
 )
 
 type Connection struct {
 	id       string
 	ws       *websocket.Conn
-	user     authentication.User
+	user     User
 	nsfw     bool
 	channels ChannelSet
 }
@@ -34,34 +33,34 @@ func (c *Channel) Hash() uint64 {
 	return h.Sum64()
 }
 
-type Backend interface {
+type WebsocketBackend interface {
 	Channel() chan IMessage
 	SendMessage(message IMessage)
 	Connections(channels ChannelSet) []*Connection
 	LocalConnections(channels ChannelSet) []*Connection
-	RegisterConnection(ws *websocket.Conn, user authentication.User, channels ChannelSet, nsfw bool) *Connection
+	RegisterConnection(ws *websocket.Conn, user User, channels ChannelSet, nsfw bool) *Connection
 	CloseConnection(connection *Connection)
 }
 
-type MemoryBackend struct {
+type WebsocketMemoryBackend struct {
 	channel     chan IMessage
 	connections ConnectionSet
 	channelMap  map[string]ConnectionSet
 }
 
-func NewMemoryBackend() MemoryBackend {
-	return MemoryBackend{make(chan IMessage), ConnectionSet{}, make(map[string]ConnectionSet)}
+func NewWebsocketMemoryBackend() WebsocketMemoryBackend {
+	return WebsocketMemoryBackend{make(chan IMessage), ConnectionSet{}, make(map[string]ConnectionSet)}
 }
 
-func (b MemoryBackend) Channel() chan IMessage {
+func (b WebsocketMemoryBackend) Channel() chan IMessage {
 	return b.channel
 }
 
-func (b MemoryBackend) SendMessage(message IMessage) {
+func (b WebsocketMemoryBackend) SendMessage(message IMessage) {
 	b.channel <- message
 }
 
-func (b MemoryBackend) Connections(channels ChannelSet) []*Connection {
+func (b WebsocketMemoryBackend) Connections(channels ChannelSet) []*Connection {
 	var connections ConnectionSet
 
 	for _, channel := range channels {
@@ -73,11 +72,11 @@ func (b MemoryBackend) Connections(channels ChannelSet) []*Connection {
 	return connections.Values()
 }
 
-func (b MemoryBackend) LocalConnections(channels ChannelSet) []*Connection {
+func (b WebsocketMemoryBackend) LocalConnections(channels ChannelSet) []*Connection {
 	return b.Connections(channels)
 }
 
-func (b MemoryBackend) RegisterConnection(ws *websocket.Conn, user authentication.User, channels ChannelSet, nsfw bool) *Connection {
+func (b WebsocketMemoryBackend) RegisterConnection(ws *websocket.Conn, user User, channels ChannelSet, nsfw bool) *Connection {
 	connection := &Connection{strings.Replace(uuid.New().String(), "-", "", 4), ws, user, nsfw, channels}
 
 	for _, channel := range channels.Values() {
@@ -92,7 +91,7 @@ func (b MemoryBackend) RegisterConnection(ws *websocket.Conn, user authenticatio
 	return connection
 }
 
-func (b MemoryBackend) CloseConnection(connection *Connection) {
+func (b WebsocketMemoryBackend) CloseConnection(connection *Connection) {
 	for _, channel := range connection.channels.Values() {
 		b.channelMap[channel.Value].Remove(connection)
 		if len(b.channelMap[channel.Value]) == 0 {
