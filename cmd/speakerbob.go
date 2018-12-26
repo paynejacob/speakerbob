@@ -4,6 +4,7 @@ import "C"
 import (
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/jinzhu/gorm"
 	"github.com/urfave/cli"
 	"github.com/urfave/negroni"
 	"log"
@@ -85,6 +86,9 @@ func serve() {
 	wsService.RegisterRoutes(router, "/api/ws").Use(authService.AuthenticationMiddleware)
 	router.Handle("/", http.FileServer(http.Dir("/etc/speakerbob/assets")))
 
+	log.Print("Hydrating search index")
+	hydrateIndex(searchService, db)
+
 	log.Print("starting ws consumer")
 	go wsService.WSMessageConsumer()
 
@@ -92,4 +96,16 @@ func serve() {
 	log.Printf("listening on %s:%v", config.Host, config.Port)
 	n.UseHandler(router)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", config.Host, config.Port), n))
+}
+
+func hydrateIndex(searchService *api.SearchService, db *gorm.DB) {
+	sounds, _ := db.Model(api.Sound{}).Rows()
+	defer func() {_ = sounds.Close() }()
+	for sounds.Next() {
+		var sound api.Sound
+
+		_ = db.ScanRows(sounds, &sound)
+		_ = searchService.UpdateResult(api.SoundSearchResult(sound))
+
+	}
 }
