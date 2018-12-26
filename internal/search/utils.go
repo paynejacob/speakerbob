@@ -34,7 +34,7 @@ func (s Set) Union(b Set) Set {
 }
 
 func (s Set) Values() []string {
-	values := make([]string, len(s))
+	values := make([]string, 0)
 
 	for _, value := range s {
 		values = append(values, value)

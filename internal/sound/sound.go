@@ -210,6 +210,7 @@ func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
 	_ = s.searchService.UpdateResult(SearchResult(sound))
 
 	// write the response
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(sound)
 }

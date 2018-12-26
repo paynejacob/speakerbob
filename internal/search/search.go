@@ -41,8 +41,8 @@ func (s *Service) RegisterRoutes(router *mux.Router, subpath string) {
 
 func (s *Service) Search(w http.ResponseWriter, r *http.Request) {
 	count := 100
+	displayResults := make([]DisplayResult, 0)
 	var query string
-	var displayResults []DisplayResult
 
 	if queryString, ok := r.URL.Query()["query"]; ok {
 		query = queryString[0]
@@ -67,6 +67,7 @@ func (s *Service) Search(w http.ResponseWriter, r *http.Request) {
 		displayResults = append(displayResults, DisplayResult{result.Type(), result.Object()})
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(displayResults)
 }
 

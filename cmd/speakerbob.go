@@ -92,7 +92,7 @@ func serve() {
 	go wsService.WSMessageConsumer()
 
 	log.Print("starting web server")
-	log.Printf("sistening on %s:%v", config.Host, config.Port)
+	log.Printf("listening on %s:%v", config.Host, config.Port)
 	n.UseHandler(router)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", config.Host, config.Port), n))
 }

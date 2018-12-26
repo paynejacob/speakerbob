@@ -22,6 +22,7 @@ type LocalBackend struct {
 }
 
 func NewlocalBackend(directory string) *LocalBackend {
+	_ = os.MkdirAll(directory, os.ModePerm)
 	return &LocalBackend{directory}
 }
 

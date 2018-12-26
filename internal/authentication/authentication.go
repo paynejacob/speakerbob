@@ -20,7 +20,7 @@ type UnauthenticatedResponse struct {
 }
 
 type BadRequestResponse struct {
-	Message string `json:"websocket"`
+	Message string `json:"message"`
 }
 
 type LoginForm struct {

@@ -19,11 +19,11 @@ type MemoryBackend struct {
 }
 
 func NewMemoryBackend() *MemoryBackend {
-	return &MemoryBackend{index: make(map[string]Set)}
+	return &MemoryBackend{values: make(map[string]Result, 0), index: make(map[string]Set, 0)}
 }
 
 func (b MemoryBackend) UpdateResult(value Result) error {
-	for i := 0; i < len(value.IndexValue()); i++ {
+	for i := 1; i < len(value.IndexValue()); i++ {
 		subKey := value.IndexValue()[:i]
 
 		if _, ok := b.index[subKey]; !ok {
@@ -57,8 +57,8 @@ func (b MemoryBackend) Remove(key string) error {
 }
 
 func (b MemoryBackend) Search(query string, n int) ([]Result, error) {
-	var keys []string
-	var results []Result
+	keys := make([]string, 0)
+	results := make([]Result, 0)
 
 	if rs, ok := b.index[query]; ok {
 		if len(rs) > n {
