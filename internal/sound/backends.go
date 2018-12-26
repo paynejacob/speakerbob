@@ -22,6 +22,7 @@ type LocalBackend struct {
 }
 
 func NewlocalBackend(directory string) *LocalBackend {
+	_ = os.MkdirAll(directory, os.ModePerm)
 	return &LocalBackend{directory}
 }
 
@@ -69,7 +70,8 @@ func NewMinioBackend(url string, accessID string, accessKey string, useSSL bool,
 	if err != nil {
 		panic("failed to configure minio")
 	}
-	return &MinioBackend{bucketName,client}
+	ensureBucket(bucketName, client)
+	return &MinioBackend{bucketName, client}
 }
 
 func (b MinioBackend) ServeRedirect() bool {

@@ -11,6 +11,7 @@ import (
 	"os"
 	"speakerbob/internal"
 	"speakerbob/internal/authentication"
+	"speakerbob/internal/search"
 	"speakerbob/internal/sound"
 	"speakerbob/internal/websocket"
 )
@@ -65,6 +66,7 @@ func serve() {
 
 	config := internal.GetConfig()
 	db := internal.GetDB(config.DBURL)
+	bluemixSession := internal.GetBluemixSession(config.BluemixAPIKey)
 	router := mux.NewRouter()
 	n := negroni.New(negroni.NewRecovery())
 	logger := negroni.NewLogger()
@@ -74,20 +76,23 @@ func serve() {
 	n.Use(logger)
 
 	log.Println("creating services")
-	authService := authentication.NewService(config.AuthBackendURL, config.CookieName, config.TokenTTL, db)
 	wsService := websocket.NewService(config.MessageBrokerURL, db)
-	soundService := sound.NewService(config.SoundBackendURL, config.PageSize, config.MaxSoundLength, db, wsService)
+	searchService := search.NewService(config.SearchBackendURL)
+	authService := authentication.NewService(config.AuthBackendURL, config.CookieName, config.TokenTTL, db)
+	soundService := sound.NewService(config.SoundBackendURL, config.PageSize, config.MaxSoundLength, db, wsService, searchService, bluemixSession)
 
 	log.Print("registering routes")
 	authService.RegisterRoutes(router, "/auth")
 	soundService.RegisterRoutes(router, "/api")
+	searchService.RegisterRoutes(router, "/api")
+	wsService.RegisterRoutes(router, "/api")
 	router.Handle("/", http.FileServer(http.Dir("/etc/speakerbob/assets")))
 
 	log.Print("starting ws consumer")
 	go wsService.WSMessageConsumer()
 
 	log.Print("starting web server")
-	log.Printf("sistening on %s:%v", config.Host, config.Port)
+	log.Printf("listening on %s:%v", config.Host, config.Port)
 	n.UseHandler(router)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", config.Host, config.Port), n))
 }

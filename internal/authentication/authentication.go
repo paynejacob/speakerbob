@@ -20,7 +20,7 @@ type UnauthenticatedResponse struct {
 }
 
 type BadRequestResponse struct {
-	Message string `json:"websocket"`
+	Message string `json:"message"`
 }
 
 type LoginForm struct {
@@ -95,7 +95,7 @@ func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 		Data:    &data,
 		Rules: govalidator.MapData{
 			"username": []string{"required"},
-			"password":  []string{"required"},
+			"password": []string{"required"},
 		},
 	}).ValidateJSON()
 
@@ -164,14 +164,14 @@ func (s *Service) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s * Service) ListUser(w http.ResponseWriter, r *http.Request)  {
+func (s *Service) ListUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-func (s * Service) GetUser(w http.ResponseWriter, r *http.Request)  {
+func (s *Service) GetUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-func (s * Service) UpdateUser(w http.ResponseWriter, r *http.Request)  {
+func (s *Service) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }

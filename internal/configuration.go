@@ -1,14 +1,16 @@
 package internal
 
 import (
+	"github.com/IBM-Cloud/bluemix-go"
+	"github.com/IBM-Cloud/bluemix-go/session"
 	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/mysql" // ensure gorm supports mysql
+	_ "github.com/jinzhu/gorm/dialects/postgres" // ensure gorm supports pg
+	_ "github.com/jinzhu/gorm/dialects/sqlite"  // ensure gorm supports sqlite
 	"github.com/kelseyhightower/envconfig"
 	"log"
 	"net/url"
 	"time"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
-	_ "github.com/jinzhu/gorm/dialects/mssql"
 )
 
 type Config struct {
@@ -18,10 +20,12 @@ type Config struct {
 	Host string `default:"0.0.0.0"`
 	Port int    `default:"80"`
 
-	DBURL string `default:"sqlite3:///etc/speakerbob/speakerbob.db"`
+	DBURL            string `default:"sqlite3:///etc/speakerbob/speakerbob.db"`
 	AuthBackendURL   string `default:"memory://"`
+	SearchBackendURL string `default:"memory://"`
 	MessageBrokerURL string `default:"memory://"`
-	SoundBackendURL string `default:"local:///etc/speakerbob/sounds"`
+	SoundBackendURL  string `default:"local:///etc/speakerbob/sounds"`
+	BluemixAPIKey    string `default:""`
 
 	SoundBucketName string `default:"sbsounds"`
 
@@ -55,4 +59,17 @@ func GetDB(dbURL string) *gorm.DB {
 	}
 
 	return db
+}
+
+func GetBluemixSession(bluemixAPIKey string) *session.Session {
+	if bluemixAPIKey != "" {
+		return nil
+	}
+	sess, err := session.New(&bluemix.Config{BluemixAPIKey: bluemixAPIKey})
+
+	if err != nil {
+		log.Fatalf("failed to configure bluemix session: %v", err)
+	}
+
+	return sess
 }

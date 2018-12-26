@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  branch = "master"
+  name = "github.com/IBM-Cloud/bluemix-go"
+  packages = [".","bmxerror","endpoints","helpers","session","trace"]
+  revision = "3a2bc4565a2696e0979752db93480fc53bbb23fe"
+
+[[projects]]
   name = "github.com/dustin/go-humanize"
   packages = ["."]
   revision = "9f541cc9db5d55bce703bd99987c9d5cb8eea45e"
@@ -12,6 +18,12 @@
   packages = ["."]
   revision = "f55231ca73a76c1d61eb05fe0d64a1ccebf93cba"
   version = "v1.39.3"
+
+[[projects]]
+  name = "github.com/go-sql-driver/mysql"
+  packages = ["."]
+  revision = "72cd26f257d44c1114970e19afddcd812016007e"
+  version = "v1.4.1"
 
 [[projects]]
   name = "github.com/google/uuid"
@@ -39,7 +51,7 @@
 
 [[projects]]
   name = "github.com/jinzhu/gorm"
-  packages = [".","dialects/sqlite"]
+  packages = [".","dialects/mysql","dialects/postgres","dialects/sqlite"]
   revision = "472c70caa40267cb89fd8facb07fe6454b578626"
   version = "v1.9.2"
 
@@ -60,6 +72,12 @@
   packages = ["."]
   revision = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242"
   version = "v1.0.1"
+
+[[projects]]
+  name = "github.com/lib/pq"
+  packages = [".","hstore","oid"]
+  revision = "4ded0e9383f75c197b3a2aaa6d590ac52df6fd79"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/mattn/go-sqlite3"
@@ -112,7 +130,7 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["http/httpguts","idna"]
+  packages = ["http/httpguts","idna","websocket"]
   revision = "927f97764cc334a6575f4b7a1584a147864d5723"
 
 [[projects]]
@@ -127,9 +145,15 @@
   revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
   version = "v0.3.0"
 
+[[projects]]
+  name = "google.golang.org/appengine"
+  packages = ["cloudsql"]
+  revision = "e9657d882bb81064595ca3b56cbe2546bbabf7b1"
+  version = "v1.4.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3041efa10aa3c04d25cf97cd17ad6ee2db3cc3139d7f58eca4d929830f482f87"
+  inputs-digest = "dee768752f8819ba5d146745b06705777d0ffe0fd74b3e5e8dfdd1f67558ad1f"
   solver-name = "gps-cdcl"
   solver-version = 1

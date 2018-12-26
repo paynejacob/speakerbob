@@ -2,6 +2,7 @@ package sound
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"github.com/minio/minio-go"
@@ -46,7 +47,7 @@ func getAudioDuration(path string) (int, error) {
 
 func normalizeAudio(path string) (string, error) {
 	normalPath := fmt.Sprintf("%s.normal", path)
-	return normalPath, exec.Command("ffmpeg", "-y", "-i", path, "-filter:a", "loudnorm", "-f", "mp3", normalPath).Run()
+	return normalPath, exec.Command("ffmpeg", "-y", "-i", path, "-filter:a", "loudnorm", "-f", "wav", normalPath).Run()
 }
 
 func ensureBucket(soundBucketName string, minio *minio.Client) {
@@ -60,4 +61,12 @@ func ensureBucket(soundBucketName string, minio *minio.Client) {
 	} else {
 		log.Printf("Audio bucket was created %s\n", soundBucketName)
 	}
+}
+
+func hashSpeakName(text string) string {
+	h := sha256.New()
+
+	_, _ = h.Write([]byte(text))
+
+	return string(h.Sum(nil))
 }

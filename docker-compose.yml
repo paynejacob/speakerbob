@@ -7,8 +7,6 @@ services:
       - "8080:8080"
     environment:
       - PORT=8080
-      - DBURL=sqlite3:///etc/speakerbob/speakerbob.db
-      - SOUNDBACKENDURL=local:///etc/speakerbob/sounds
     volumes:
       - speakerbob:/etc/speakerbob
       - sounds:/etc/speakerbob/sounds
