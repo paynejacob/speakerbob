@@ -38,7 +38,7 @@ func NewSearchService(backendURL string) *SearchService {
 func (s *SearchService) RegisterRoutes(parent *mux.Router, prefix string) *mux.Router {
 	router := parent.PathPrefix(prefix).Subrouter()
 
-	router.HandleFunc("/", s.Search).Methods("GET")
+	router.HandleFunc("", s.Search).Methods("GET")
 
 	return router
 }
@@ -75,6 +75,6 @@ func (s *SearchService) Search(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(displayResults)
 }
 
-func (s *SearchService) UpdateResult(result Result) error {
+func (s *SearchService) UpdateResult(result SearchResult) error {
 	return s.backend.UpdateResult(result)
 }

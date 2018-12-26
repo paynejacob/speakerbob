@@ -26,21 +26,21 @@ type SpeakForm struct {
 	Channels []string `json:"channels"`
 }
 
-type SearchResult Sound
+type SoundSearchResult Sound
 
-func (SearchResult) Type() string {
+func (SoundSearchResult) Type() string {
 	return "sound"
 }
 
-func (r SearchResult) Key() string {
+func (r SoundSearchResult) Key() string {
 	return r.Id
 }
 
-func (r SearchResult) IndexValue() string {
+func (r SoundSearchResult) IndexValue() string {
 	return r.Name
 }
 
-func (r SearchResult) Object() interface{} {
+func (r SoundSearchResult) Object() interface{} {
 	return r
 }
 
@@ -147,14 +147,22 @@ func (s *SoundService) CreateSound(w http.ResponseWriter, r *http.Request) {
 
 	// check for form validation errors
 	if len(e) != 0 {
-		w.WriteHeader(http.StatusBadRequest)
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
 
 		if msg := e.Get("_error"); msg == "unexpected EOF" || msg == "EOF" {
 			_ = json.NewEncoder(w).Encode(MessageResponse{"Invalid JSON."})
 		} else {
 			_ = json.NewEncoder(w).Encode(e)
 		}
+		return
+	}
+
+	var duplicateName int
+	if _ = s.db.Model(&Sound{}).Where("name = ?", r.FormValue("name")).Count(&duplicateName).Limit(1); duplicateName > 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(MessageResponse{"the sound name must be unique"})
 		return
 	}
 
@@ -205,7 +213,7 @@ func (s *SoundService) CreateSound(w http.ResponseWriter, r *http.Request) {
 	s.db.Create(&sound)
 
 	// update the search index
-	_ = s.searchService.UpdateResult(SearchResult(sound))
+	_ = s.searchService.UpdateResult(SoundSearchResult(sound))
 
 	// write the response
 	w.Header().Set("Content-Type", "application/json")

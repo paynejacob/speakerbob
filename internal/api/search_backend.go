@@ -2,7 +2,7 @@ package api
 
 import "speakerbob/internal"
 
-type Result interface {
+type SearchResult interface {
 	Type() string
 	Key() string
 	IndexValue() string
@@ -10,21 +10,21 @@ type Result interface {
 }
 
 type SearchBackend interface {
-	UpdateResult(value Result) error
+	UpdateResult(value SearchResult) error
 	Remove(key string) error
-	Search(query string, n int) ([]Result, error)
+	Search(query string, n int) ([]SearchResult, error)
 }
 
 type SearchMemoryBackend struct {
-	values map[string]Result
+	values map[string]SearchResult
 	index  map[string]internal.Set
 }
 
 func NewSearchMemoryBackend() *SearchMemoryBackend {
-	return &SearchMemoryBackend{values: make(map[string]Result, 0), index: make(map[string]internal.Set, 0)}
+	return &SearchMemoryBackend{values: make(map[string]SearchResult, 0), index: make(map[string]internal.Set, 0)}
 }
 
-func (b SearchMemoryBackend) UpdateResult(value Result) error {
+func (b SearchMemoryBackend) UpdateResult(value SearchResult) error {
 	for i := 1; i < len(value.IndexValue()); i++ {
 		subKey := value.IndexValue()[:i]
 
@@ -58,9 +58,9 @@ func (b SearchMemoryBackend) Remove(key string) error {
 	return nil
 }
 
-func (b SearchMemoryBackend) Search(query string, n int) ([]Result, error) {
+func (b SearchMemoryBackend) Search(query string, n int) ([]SearchResult, error) {
 	keys := make([]string, 0)
-	results := make([]Result, 0)
+	results := make([]SearchResult, 0)
 
 	if rs, ok := b.index[query]; ok {
 		if len(rs) > n {
