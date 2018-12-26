@@ -2,12 +2,6 @@
 
 
 [[projects]]
-  branch = "master"
-  name = "github.com/IBM-Cloud/bluemix-go"
-  packages = [".","bmxerror","endpoints","helpers","session","trace"]
-  revision = "3a2bc4565a2696e0979752db93480fc53bbb23fe"
-
-[[projects]]
   name = "github.com/cloudfoundry-community/go-cfenv"
   packages = ["."]
   revision = "f920e9562d5f951cbf11785728f67258c38a10d0"
@@ -166,7 +160,7 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["http/httpguts","idna","websocket"]
+  packages = ["http/httpguts","idna"]
   revision = "927f97764cc334a6575f4b7a1584a147864d5723"
 
 [[projects]]
@@ -196,6 +190,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "34e347d033788313f90be911e066b3e471355c61cc5146877084815cb1975ac4"
+  inputs-digest = "28e63715fbe5400ff37f1f7f11600d97d9e5cfc7d7e760471b327197f2ddf574"
   solver-name = "gps-cdcl"
   solver-version = 1
