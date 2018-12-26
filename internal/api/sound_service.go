@@ -1,4 +1,4 @@
-package sound
+package api
 
 import (
 	"encoding/json"
@@ -11,18 +11,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"speakerbob/internal/search"
-	"speakerbob/internal/websocket"
 	"strconv"
 )
 
-type ErrorResponse struct {
-	Message string `json:"message"`
-}
-
-type ListResponse struct {
-	Count   int     `json:"count"`
-	Offset  int     `json:"offset"`
+type ListSoundResponse struct {
+	Count int `json:"count"`
+	Offset int `json:"offset"`
 	Results []Sound `json:"results"`
 }
 
@@ -50,19 +44,19 @@ func (r SearchResult) Object() interface{} {
 	return r
 }
 
-type Service struct {
-	backend        Backend
+type SoundService struct {
+	backend        SoundBackend
 	pageSize       int
 	maxSoundLength int
 
 	db             *gorm.DB
-	wsService      *websocket.Service
-	searchService  *search.Service
+	wsService      *WebsocketService
+	searchService  *SearchService
 	blueMixSession *bluemix.Session
 }
 
-func NewService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB, wsService *websocket.Service, searchService *search.Service, blueMixSession *bluemix.Session) *Service {
-	var backend Backend
+func NewSoundService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB, wsService *WebsocketService, searchService *SearchService, blueMixSession *bluemix.Session) *SoundService {
+	var backend SoundBackend
 	parsedUrl, err := url.Parse(backendURL)
 	if err != nil {
 		panic("invalid backend url")
@@ -74,7 +68,7 @@ func NewService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB
 		if err != nil {
 			panic("invalid local backend url")
 		}
-		backend = NewlocalBackend(parsedURL.Path)
+		backend = NewSoundLocalBackend(parsedURL.Path)
 	case "minio://":
 		parsedURL, err := url.Parse(backendURL)
 		if err != nil {
@@ -82,32 +76,36 @@ func NewService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB
 		}
 
 		password, _ := parsedURL.User.Password()
-		backend = NewMinioBackend(parsedURL.Host, parsedURL.User.Username(), password, parsedURL.Query()["use_ssl"][0] == "1", parsedURL.Path[1:])
+		backend = NewSoundMinioBackend(parsedURL.Host, parsedURL.User.Username(), password, parsedURL.Query()["use_ssl"][0] == "1", parsedURL.Path[1:])
 	default:
 		panic(fmt.Sprintf("\"%s\" is not a valid sound backend url", parsedUrl.Scheme))
 	}
 
 	db.AutoMigrate(&Sound{}, &Macro{}, &PositionalSound{})
-	return &Service{backend, pageSize, maxSoundLength, db, wsService, searchService, blueMixSession}
+	return &SoundService{backend, pageSize, maxSoundLength, db, wsService, searchService, blueMixSession}
 }
 
-func (s *Service) RegisterRoutes(router *mux.Router, subpath string) {
-	router.HandleFunc(fmt.Sprintf("%s/sound", subpath), s.ListSound).Methods("GET")
-	router.HandleFunc(fmt.Sprintf("%s/sound", subpath), s.CreateSound).Methods("POST")
-	router.HandleFunc(fmt.Sprintf("%s/sound/{id}", subpath), s.GetSound).Methods("GET")
-	router.HandleFunc(fmt.Sprintf("%s/sound/{id}/download", subpath), s.DownloadSound).Methods("GET")
-	router.HandleFunc(fmt.Sprintf("%s/sound/{id}/play", subpath), s.PlaySound).Methods("POST")
+func (s *SoundService) RegisterRoutes(parent *mux.Router, prefix string) *mux.Router {
+	router := parent.PathPrefix(prefix).Subrouter()
 
-	router.HandleFunc(fmt.Sprintf("%s/macro", subpath), s.ListMacro).Methods("GET")
-	router.HandleFunc(fmt.Sprintf("%s/macro", subpath), s.CreateMacro).Methods("POST")
-	router.HandleFunc(fmt.Sprintf("%s/macro/{id}", subpath), s.GetMacro).Methods("GET")
-	router.HandleFunc(fmt.Sprintf("%s/macro/{id}/download", subpath), s.DownloadMacro).Methods("GET")
+	router.HandleFunc("", s.ListSound).Methods("GET")
+	router.HandleFunc("", s.CreateSound).Methods("POST")
+	router.HandleFunc("/{id}", s.GetSound).Methods("GET")
+	router.HandleFunc("/{id}/download", s.DownloadSound).Methods("GET")
+	router.HandleFunc("/{id}/play", s.PlaySound).Methods("POST")
 
-	router.HandleFunc(fmt.Sprintf("%s/speak", subpath), s.Speak).Methods("POST")
+	router.HandleFunc("/", s.ListMacro).Methods("GET")
+	router.HandleFunc("/", s.CreateMacro).Methods("POST")
+	router.HandleFunc("/{id}", s.GetMacro).Methods("GET")
+	router.HandleFunc("/{id}/download", s.DownloadMacro).Methods("GET")
+
+	router.HandleFunc("/speak", s.Speak).Methods("POST")
+
+	return router
 }
 
-func (s *Service) ListSound(w http.ResponseWriter, r *http.Request) {
-	resp := &ListResponse{0, 0, make([]Sound, 0)}
+func (s *SoundService) ListSound(w http.ResponseWriter, r *http.Request) {
+	resp := &ListSoundResponse{0, 0, make([]Sound, 0)}
 
 	if offsetStr, ok := r.URL.Query()["offset"]; ok {
 		resp.Offset, _ = strconv.Atoi(offsetStr[0])
@@ -120,7 +118,7 @@ func (s *Service) ListSound(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-func (s *Service) GetSound(w http.ResponseWriter, r *http.Request) {
+func (s *SoundService) GetSound(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	sound := &Sound{}
 
@@ -135,7 +133,7 @@ func (s *Service) GetSound(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
+func (s *SoundService) CreateSound(w http.ResponseWriter, r *http.Request) {
 	var sound Sound
 
 	// Validate the json Payload
@@ -153,7 +151,7 @@ func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		if msg := e.Get("_error"); msg == "unexpected EOF" || msg == "EOF" {
-			_ = json.NewEncoder(w).Encode(ErrorResponse{"Invalid JSON."})
+			_ = json.NewEncoder(w).Encode(MessageResponse{"Invalid JSON."})
 		} else {
 			_ = json.NewEncoder(w).Encode(e)
 		}
@@ -175,7 +173,7 @@ func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
 	// validate the file length
 	if length, err := getAudioDuration(tmpFilePath); length > s.maxSoundLength {
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(ErrorResponse{fmt.Sprintf("sound file length may not exceed %d seconds", s.maxSoundLength)})
+		_ = json.NewEncoder(w).Encode(MessageResponse{fmt.Sprintf("sound file length may not exceed %d seconds", s.maxSoundLength)})
 		return
 	} else if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -215,7 +213,7 @@ func (s *Service) CreateSound(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(sound)
 }
 
-func (s *Service) DownloadSound(w http.ResponseWriter, r *http.Request) {
+func (s *SoundService) DownloadSound(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	var soundRecord Sound
 
@@ -243,7 +241,7 @@ func (s *Service) DownloadSound(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, file)
 }
 
-func (s *Service) PlaySound(w http.ResponseWriter, r *http.Request) {
+func (s *SoundService) PlaySound(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	var sound Sound
 
@@ -257,34 +255,34 @@ func (s *Service) PlaySound(w http.ResponseWriter, r *http.Request) {
 		channels = append(channels, "*")
 	}
 
-	channelSet := websocket.ChannelSet{}
+	channelSet := ChannelSet{}
 	for _, channel := range channels {
-		channelSet.Add(&websocket.Channel{Value: channel})
+		channelSet.Add(&Channel{Value: channel})
 	}
 
-	message := websocket.NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW)
+	message := NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW)
 	s.wsService.SendMessage(message)
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Service) ListMacro(w http.ResponseWriter, r *http.Request) {
+func (s *SoundService) ListMacro(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-func (s *Service) GetMacro(w http.ResponseWriter, r *http.Request) {
+func (s *SoundService) GetMacro(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-func (s *Service) CreateMacro(w http.ResponseWriter, r *http.Request) {
+func (s *SoundService) CreateMacro(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-func (s *Service) DownloadMacro(w http.ResponseWriter, r *http.Request) {
+func (s *SoundService) DownloadMacro(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-func (s *Service) Speak(w http.ResponseWriter, r *http.Request) {
+func (s *SoundService) Speak(w http.ResponseWriter, r *http.Request) {
 	if s.blueMixSession == nil {
 		w.WriteHeader(http.StatusNotImplemented)
 		return
@@ -307,7 +305,7 @@ func (s *Service) Speak(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		if msg := e.Get("_error"); msg == "unexpected EOF" || msg == "EOF" {
-			_ = json.NewEncoder(w).Encode(ErrorResponse{"Invalid JSON."})
+			_ = json.NewEncoder(w).Encode(MessageResponse{"Invalid JSON."})
 		} else {
 			_ = json.NewEncoder(w).Encode(e)
 		}
@@ -315,12 +313,12 @@ func (s *Service) Speak(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create channelSet
-	channelSet := websocket.ChannelSet{}
+	channelSet := ChannelSet{}
 	if len(data.Channels) == 0 {
-		channelSet.Add(&websocket.Channel{Value: "*"})
+		channelSet.Add(&Channel{Value: "*"})
 	} else {
 		for _, channel := range data.Channels {
-			channelSet.Add(&websocket.Channel{Value: channel})
+			channelSet.Add(&Channel{Value: channel})
 		}
 	}
 
@@ -329,7 +327,7 @@ func (s *Service) Speak(w http.ResponseWriter, r *http.Request) {
 	hashedName := hashSpeakName(data.Text)
 	s.db.Where("name = ?", hashedName).First(&sound)
 	if sound.Id != "" {
-		s.wsService.SendMessage(websocket.NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW))
+		s.wsService.SendMessage(NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW))
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(sound)
 		return
@@ -359,7 +357,7 @@ func (s *Service) Speak(w http.ResponseWriter, r *http.Request) {
 
 	// create sound and send play message
 	s.db.Create(&sound)
-	s.wsService.SendMessage(websocket.NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW))
+	s.wsService.SendMessage(NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW))
 
 	// return response
 	w.WriteHeader(http.StatusCreated)

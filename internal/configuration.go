@@ -21,7 +21,7 @@ type Config struct {
 	Port int    `default:"80"`
 
 	DBURL            string `default:"sqlite3:///etc/speakerbob/speakerbob.db"`
-	AuthBackendURL   string `default:"memory://"`
+	AuthBackendURL   string `default:""`
 	SearchBackendURL string `default:"memory://"`
 	MessageBrokerURL string `default:"memory://"`
 	SoundBackendURL  string `default:"local:///etc/speakerbob/sounds"`

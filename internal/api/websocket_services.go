@@ -1,4 +1,4 @@
-package websocket
+package api
 
 import (
 	"fmt"
@@ -6,41 +6,44 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/jinzhu/gorm"
 	"net/http"
-	"regexp"
-	"speakerbob/internal/authentication"
+	"net/url"
 )
 
-var backendProtoRegex = regexp.MustCompile("(.*)://.*?")
-
-type Service struct {
-	backend  Backend
+type WebsocketService struct {
+	backend  WebsocketBackend
 	upgrader websocket.Upgrader
 
 	db *gorm.DB
 }
 
-func NewService(backendURL string, db *gorm.DB) *Service {
-	var backend Backend
+func NewWebsocketService(backendURL string, db *gorm.DB) *WebsocketService {
+	var backend WebsocketBackend
 	var upgrader = websocket.Upgrader{}
 
-	if matches := backendProtoRegex.FindStringSubmatch(backendURL); len(matches) > 0 {
-		proto := matches[0]
-		switch proto {
-		case "memory://":
-			backend = NewMemoryBackend()
-		default:
-			panic(fmt.Sprintf("\"%s\" is not a valid authentication backend proto", proto))
-		}
+	parsedUrl, err := url.Parse(backendURL)
+	if err != nil {
+		panic("invalid backend url")
 	}
 
-	return &Service{backend, upgrader, db}
+	switch parsedUrl.Scheme {
+	case "memory":
+		backend = NewWebsocketMemoryBackend()
+	default:
+		panic(fmt.Sprintf("\"%s\" is not a valid authentication backend proto", parsedUrl.Scheme))
+	}
+
+	return &WebsocketService{backend, upgrader, db}
 }
 
-func (s *Service) RegisterRoutes(router *mux.Router, subpath string) {
-	router.HandleFunc(fmt.Sprintf("%s/ws", subpath), s.WSConnect).Methods("GET")
+func (s *WebsocketService) RegisterRoutes(parent *mux.Router, prefix string) *mux.Router {
+	router := parent.PathPrefix(prefix).Subrouter()
+
+	router.HandleFunc("/", s.WSConnect).Methods("GET")
+
+	return router
 }
 
-func (s *Service) WSConnect(w http.ResponseWriter, r *http.Request) {
+func (s *WebsocketService) WSConnect(w http.ResponseWriter, r *http.Request) {
 	var channels ChannelSet
 
 	if rawChannels, ok := r.URL.Query()["channels"]; ok {
@@ -63,7 +66,7 @@ func (s *Service) WSConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var user authentication.User
+	var user User
 	if err := s.db.Where("id = ?", r.Context().Value("userId")).First(&user); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -75,11 +78,11 @@ func (s *Service) WSConnect(w http.ResponseWriter, r *http.Request) {
 	s.backend.CloseConnection(connection)
 }
 
-func (s *Service) SendMessage(message IMessage) {
+func (s *WebsocketService) SendMessage(message IMessage) {
 	s.backend.SendMessage(message)
 }
 
-func (s *Service) WSMessageConsumer() {
+func (s *WebsocketService) WSMessageConsumer() {
 	for {
 		for message := range s.backend.Channel() {
 			for _, connection := range s.backend.LocalConnections(message.Channels()) {

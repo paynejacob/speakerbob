@@ -1,4 +1,4 @@
-package websocket
+package api
 
 type ConnectionSet map[uint64]*Connection
 

@@ -1,4 +1,4 @@
-package search
+package api
 
 import (
 	"encoding/json"
@@ -14,12 +14,12 @@ type DisplayResult struct {
 	Result interface{} `json:"result"`
 }
 
-type Service struct {
-	backend Backend
+type SearchService struct {
+	backend SearchBackend
 }
 
-func NewService(backendURL string) *Service {
-	var backend Backend
+func NewSearchService(backendURL string) *SearchService {
+	var backend SearchBackend
 	parsedUrl, err := url.Parse(backendURL)
 	if err != nil {
 		panic("invalid backend url")
@@ -27,19 +27,23 @@ func NewService(backendURL string) *Service {
 
 	switch parsedUrl.Scheme {
 	case "memory":
-		backend = NewMemoryBackend()
+		backend = NewSearchMemoryBackend()
 	default:
 		panic(fmt.Sprintf("\"%s\" is not a valid search backend url", parsedUrl.Scheme))
 	}
 
-	return &Service{backend}
+	return &SearchService{backend}
 }
 
-func (s *Service) RegisterRoutes(router *mux.Router, subpath string) {
-	router.HandleFunc(fmt.Sprintf("%s/search", subpath), s.Search).Methods("GET")
+func (s *SearchService) RegisterRoutes(parent *mux.Router, prefix string) *mux.Router {
+	router := parent.PathPrefix(prefix).Subrouter()
+
+	router.HandleFunc("/", s.Search).Methods("GET")
+
+	return router
 }
 
-func (s *Service) Search(w http.ResponseWriter, r *http.Request) {
+func (s *SearchService) Search(w http.ResponseWriter, r *http.Request) {
 	count := 100
 	displayResults := make([]DisplayResult, 0)
 	var query string
@@ -71,6 +75,6 @@ func (s *Service) Search(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(displayResults)
 }
 
-func (s *Service) UpdateResult(result Result) error {
+func (s *SearchService) UpdateResult(result Result) error {
 	return s.backend.UpdateResult(result)
 }
