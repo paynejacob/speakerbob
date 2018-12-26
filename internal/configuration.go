@@ -4,9 +4,9 @@ import (
 	"github.com/IBM-Cloud/bluemix-go"
 	"github.com/IBM-Cloud/bluemix-go/session"
 	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/mssql"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
+	_ "github.com/jinzhu/gorm/dialects/mysql" // ensure gorm supports mysql
+	_ "github.com/jinzhu/gorm/dialects/postgres" // ensure gorm supports pg
+	_ "github.com/jinzhu/gorm/dialects/sqlite"  // ensure gorm supports sqlite
 	"github.com/kelseyhightower/envconfig"
 	"log"
 	"net/url"

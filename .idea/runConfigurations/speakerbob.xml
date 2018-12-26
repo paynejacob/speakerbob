@@ -4,15 +4,8 @@
     <working_directory value="$PROJECT_DIR$/" />
     <envs>
       <env name="PORT" value="8090" />
-      <env name="DBHOST" value="localhost" />
-      <env name="DBUSER" value="speakerbob" />
-      <env name="DBPASSWORD" value="speakerbob" />
-      <env name="DBNAME" value="speakerbob" />
-      <env name="REDISURL" value="redis://localhost:6379/0" />
-      <env name="MINIOURL" value="localhost:9000" />
-      <env name="MINIOACCESSID" value="speakerbob" />
-      <env name="MINIOACCESSKEY" value="speakerbob" />
-      <env name="MINIOUSESSL" value="false" />
+      <env name="DBURL" value="sqlite3:///tmp/speakerbob.db" />
+      <env name="SOUNDBACKENDURL" value="local:///tmp/sbsounds" />
     </envs>
     <kind value="FILE" />
     <filePath value="$PROJECT_DIR$/cmd/speakerbob.go" />
