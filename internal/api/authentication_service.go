@@ -9,18 +9,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"net/url"
-	"regexp"
+	"strconv"
 	"time"
 )
 
-var backendProtoRegex = regexp.MustCompile("(.*)://.*?")
-
-type UnauthenticatedResponse struct {
-	Message string `json:"websocket"`
-}
-
-type BadRequestResponse struct {
-	Message string `json:"message"`
+type ListUserResponse struct {
+	Count int
+	Offset int
+	Results []User
 }
 
 type LoginForm struct {
@@ -28,15 +24,21 @@ type LoginForm struct {
 	Password string `json:"password"`
 }
 
+type UserForm struct {
+	DisplayName string `json:"display_name"`
+	Password string `json:"password"`
+}
 
 type AuthenticationService struct {
 	backend    AuthenticationBackend
 	cookieName string
 
+	PageSize int
+
 	db *gorm.DB
 }
 
-func NewAuthenticationService(backendURL string, cookieName string, ttl time.Duration, db *gorm.DB) *AuthenticationService {
+func NewAuthenticationService(backendURL string, cookieName string, ttl time.Duration, pageSize int, db *gorm.DB) *AuthenticationService {
 	var backend AuthenticationBackend
 	parsedUrl, err := url.Parse(backendURL)
 	if err != nil {
@@ -54,14 +56,20 @@ func NewAuthenticationService(backendURL string, cookieName string, ttl time.Dur
 
 	db.AutoMigrate(&User{})
 
-	return &AuthenticationService{backend, cookieName, db}
+	return &AuthenticationService{backend, cookieName, pageSize, db}
 }
 
 func (s *AuthenticationService) RegisterRoutes(parent *mux.Router, prefix string) *mux.Router {
 	router := parent.PathPrefix(prefix).Subrouter()
+	userRouter := router.PathPrefix("/user").Subrouter()
 
 	router.HandleFunc("/login", s.Login).Methods("POST")
 	router.HandleFunc("/logout", s.Logout).Methods("GET")
+
+	userRouter.Use(s.AuthenticationMiddleware)
+	userRouter.HandleFunc("", s.ListUser).Methods("GET")
+	userRouter.HandleFunc("/{id}", s.GetUser).Methods("GET")
+	userRouter.HandleFunc("/{id}", s.UpdateUser).Methods("PATCH")
 
 	return router
 }
@@ -115,7 +123,7 @@ func (s *AuthenticationService) Login(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		if msg := e.Get("_error"); msg == "unexpected EOF" || msg == "EOF" {
-			_ = json.NewEncoder(w).Encode(BadRequestResponse{"Invalid JSON."})
+			_ = json.NewEncoder(w).Encode(MessageResponse{"Invalid JSON."})
 		} else {
 			_ = json.NewEncoder(w).Encode(e)
 		}
@@ -127,7 +135,7 @@ func (s *AuthenticationService) Login(w http.ResponseWriter, r *http.Request) {
 	if err := s.db.Select([]string{"id", "password"}).Where("username = ?", data.Username).First(&user).Error; err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(BadRequestResponse{"Invalid credentials."})
+		_ = json.NewEncoder(w).Encode(MessageResponse{"Invalid credentials."})
 		return
 	}
 
@@ -135,7 +143,7 @@ func (s *AuthenticationService) Login(w http.ResponseWriter, r *http.Request) {
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data.Password)); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(BadRequestResponse{"Invalid credentials."})
+		_ = json.NewEncoder(w).Encode(MessageResponse{"Invalid credentials."})
 		return
 	}
 
@@ -175,13 +183,83 @@ func (s *AuthenticationService) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *AuthenticationService) ListUser(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)  // TODO
+	resp := ListUserResponse{0, 0, make([]User, 0)}
+
+	if offsetStr, ok := r.URL.Query()["offset"]; ok {
+		resp.Offset, _ = strconv.Atoi(offsetStr[0])
+	}
+
+	s.db.Model(&User{}).Count(&resp.Count)
+	s.db.Limit(s.PageSize).Offset(resp.Offset).Find(&resp.Results)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (s *AuthenticationService) GetUser(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)  // TODO
+	id := mux.Vars(r)["id"]
+	user := &User{}
+
+	s.db.Where("id = ?", id).First(&user)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if user.Id == id {
+		_ = json.NewEncoder(w).Encode(user)
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+	}
 }
 
 func (s *AuthenticationService) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)  // TODO
+	id := mux.Vars(r)["id"]
+	user := &User{}
+
+	if id != r.Context().Value("userId") {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	s.db.Where("id = ?", id).First(&user)
+
+	// validate data
+	var data UserForm
+	e := govalidator.New(govalidator.Options{
+		Request: r,
+		Data:    &data,
+		Rules: govalidator.MapData{
+			"display_name": []string{},
+			"password": []string{},
+		},
+	}).ValidateJSON()
+
+	// validate form
+	if len(e) != 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+
+		if msg := e.Get("_error"); msg == "unexpected EOF" || msg == "EOF" {
+			_ = json.NewEncoder(w).Encode(MessageResponse{"Invalid JSON."})
+		} else {
+			_ = json.NewEncoder(w).Encode(e)
+		}
+		return
+	}
+
+	if data.DisplayName != "" {
+		user.DisplayName = data.DisplayName
+	}
+
+	if data.Password != "" {
+		passwordHash, _ := bcrypt.GenerateFromPassword([]byte(data.Password), bcrypt.DefaultCost)
+		user.Password = string(passwordHash)
+	}
+
+	s.db.Save(&user)
+	w.Header().Set("Content-Type", "application/json")
+	if user.Id == id {
+		_ = json.NewEncoder(w).Encode(user)
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+	}
 }
