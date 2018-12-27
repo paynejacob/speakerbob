@@ -75,7 +75,7 @@ func serve() {
 	log.Println("creating services")
 	wsService := api.NewWebsocketService(config.MessageBrokerURL, db)
 	searchService := api.NewSearchService(config.SearchBackendURL)
-	authService := api.NewAuthenticationService(config.AuthBackendURL, config.CookieName, config.TokenTTL, db)
+	authService := api.NewAuthenticationService(config.AuthBackendURL, config.CookieName, config.TokenTTL, config.PageSize, db)
 	soundService := api.NewSoundService(config.SoundBackendURL, config.PageSize, config.MaxSoundLength, db, wsService, searchService, config.BluemixAPIKey)
 
 	log.Print("registering routes")
