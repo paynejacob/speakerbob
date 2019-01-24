@@ -6,7 +6,6 @@ type MessageType int
 
 const (
 	PLAY_SOUND MessageType = 0 + iota
-	PLAY_MACRO
 	USER_CHANGE
 )
 
@@ -38,16 +37,6 @@ type PlaySoundMessage struct {
 	NSFW  bool   `json:"nsfw"`
 }
 
-func NewPlaySoundMessage(channels ChannelSet, soundId string, nsfw bool) PlaySoundMessage {
-	return PlaySoundMessage{Message{PLAY_SOUND, channels}, soundId, nsfw}
-}
-
-type PlayMacroMessage struct {
-	Message
-	Macro string `json:"sound"`
-	NSFW  bool   `json:"nsfw"`
-}
-
-func NewPlayMacroMessage(channels ChannelSet, macroId string, nsfw bool) PlayMacroMessage {
-	return PlayMacroMessage{Message{PLAY_MACRO, channels}, macroId, nsfw}
+func NewPlaySoundMessage(channels ChannelSet, sound Sound) PlaySoundMessage {
+	return PlaySoundMessage{Message{PLAY_SOUND, channels}, sound.Id, sound.NSFW}
 }

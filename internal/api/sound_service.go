@@ -20,28 +20,27 @@ type ListSoundResponse struct {
 	Results []Sound `json:"results"`
 }
 
+type ListMacroResponse struct {
+	Count int `json:"count"`
+	Offset int `json:"offset"`
+	Results []Macro `json:"results"`
+}
+
+type DetailMacroResponse struct {
+	Macro
+
+	Sounds []string `json:"sounds"`
+}
+
 type SpeakForm struct {
 	Text     string   `json:"text"`
 	NSFW     bool     `json:"nsfw"`
 	Channels []string `json:"channels"`
 }
 
-type SoundSearchResult Sound
-
-func (SoundSearchResult) Type() string {
-	return "sound"
-}
-
-func (r SoundSearchResult) Key() string {
-	return r.Id
-}
-
-func (r SoundSearchResult) IndexValue() string {
-	return r.Name
-}
-
-func (r SoundSearchResult) Object() interface{} {
-	return r
+type MacroForm struct {
+	Name string `json:"name"`
+	Sounds []string `json:"sounds"`
 }
 
 type SoundService struct {
@@ -88,16 +87,18 @@ func NewSoundService(backendURL string, pageSize int, maxSoundLength int, db *go
 func (s *SoundService) RegisterRoutes(parent *mux.Router, prefix string) *mux.Router {
 	router := parent.PathPrefix(prefix).Subrouter()
 
-	router.HandleFunc("", s.ListSound).Methods("GET")
-	router.HandleFunc("", s.CreateSound).Methods("POST")
-	router.HandleFunc("/{id}", s.GetSound).Methods("GET")
-	router.HandleFunc("/{id}/download", s.DownloadSound).Methods("GET")
-	router.HandleFunc("/{id}/play", s.PlaySound).Methods("POST")
+	// TODO routes
+	router.HandleFunc("/sound", s.ListSound).Methods("GET")
+	router.HandleFunc("/sound", s.CreateSound).Methods("POST")
+	router.HandleFunc("/sound/{id}", s.GetSound).Methods("GET")
+	router.HandleFunc("/sound/{id}/download", s.DownloadSound).Methods("GET")
+	router.HandleFunc("/sound/{id}/play", s.PlaySound).Methods("POST")
 
-	router.HandleFunc("/", s.ListMacro).Methods("GET")
-	router.HandleFunc("/", s.CreateMacro).Methods("POST")
-	router.HandleFunc("/{id}", s.GetMacro).Methods("GET")
-	router.HandleFunc("/{id}/download", s.DownloadMacro).Methods("GET")
+	// TODO routes
+	router.HandleFunc("/macro", s.ListMacro).Methods("GET")
+	router.HandleFunc("/macro", s.CreateMacro).Methods("POST")
+	router.HandleFunc("/macro/{id}", s.GetMacro).Methods("GET")
+	router.HandleFunc("/macro/{id}/play", s.PlayMacro).Methods("GET")
 
 	router.HandleFunc("/speak", s.Speak).Methods("POST")
 
@@ -213,7 +214,7 @@ func (s *SoundService) CreateSound(w http.ResponseWriter, r *http.Request) {
 	s.db.Create(&sound)
 
 	// update the search index
-	_ = s.searchService.UpdateResult(SoundSearchResult(sound))
+	_ = s.searchService.UpdateResult(sound)
 
 	// write the response
 	w.Header().Set("Content-Type", "application/json")
@@ -250,7 +251,7 @@ func (s *SoundService) DownloadSound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *SoundService) PlaySound(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	id := mux.Vars(r)["id"] // TODO streaming
 	var sound Sound
 
 	if s.db.Select("Id", "NSFW").Where("id = ?", id).First(&sound); sound.Id != "" {
@@ -268,26 +269,162 @@ func (s *SoundService) PlaySound(w http.ResponseWriter, r *http.Request) {
 		channelSet.Add(&Channel{Value: channel})
 	}
 
-	message := NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW)
+	message := NewPlaySoundMessage(channelSet, sound)
 	s.wsService.SendMessage(message)
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *SoundService) ListMacro(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+	resp := &ListMacroResponse{0, 0, make([]Macro, 0)}
+
+	if offsetStr, ok := r.URL.Query()["offset"]; ok {
+		resp.Offset, _ = strconv.Atoi(offsetStr[0])
+	}
+
+	s.db.Model(&Macro{}).Count(&resp.Count)
+	s.db.Limit(s.pageSize).Offset(resp.Offset).Find(&resp.Results)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (s *SoundService) GetMacro(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+	id := mux.Vars(r)["id"]
+	macro := &Macro{}
+
+	s.db.Where("id = ?", id).First(&macro)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if macro.Id == id {
+		_ = json.NewEncoder(w).Encode(macro)
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+	}
 }
 
 func (s *SoundService) CreateMacro(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+
+	// run validation
+	var data MacroForm
+	e := govalidator.New(govalidator.Options{
+		Request: r,
+		Data:    &data,
+		Rules: govalidator.MapData{
+			"name":     []string{"required"},
+			"sounds":     []string{"required"},
+		},
+	}).ValidateJSON()
+
+	// display form errors
+	if len(e) != 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+
+		if msg := e.Get("_error"); msg == "unexpected EOF" || msg == "EOF" {
+			_ = json.NewEncoder(w).Encode(MessageResponse{"Invalid JSON."})
+		} else {
+			_ = json.NewEncoder(w).Encode(e)
+		}
+		return
+	}
+
+	// ensure we have at least 2 songs
+	if len(data.Sounds) < 2 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(MessageResponse{"\"sounds\" must contain at least 2 sounds"})
+	}
+
+	// find songs matching ids
+	var sounds []Sound
+	if err := s.db.Select("id").Model(&Sound{}).Where("id in ?", data.Sounds); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// map songs to ids
+	soundMap := make(map[string]Sound, 0)
+	for _, sound := range sounds {
+		soundMap[sound.Id] = sound
+	}
+
+	// ensure a sound was returned for each unique sound id
+	if len(sounds) != len(data.Sounds) {
+		for _, soundId := range data.Sounds {
+			if _, ok := soundMap[soundId]; !ok {
+				w.WriteHeader(http.StatusInternalServerError)
+				_ = json.NewEncoder(w).Encode(MessageResponse{fmt.Sprintf("\"%s\" is not a valid source id", soundId)})
+				return
+			}
+		}
+	}
+
+	tx := s.db.Begin()
+
+	// create macro
+	macro := NewMacro(data.Name)
+	if err := tx.Create(&macro).Error; err != nil {
+		tx.Rollback()
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// create positional sounds
+	var positionalSounds []*PositionalSound
+	for pos, sound := range data.Sounds {
+		nps := NewPositionalSound(pos, soundMap[sound], *macro)
+
+		positionalSounds = append(positionalSounds, nps)
+		if err := tx.Create(&nps).Error; err != nil {
+			tx.Rollback()
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// commit transaction
+	if tx.Commit().Error != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	detailMacro := DetailMacroResponse{*macro, data.Sounds}
+
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(detailMacro)
+
 }
 
-func (s *SoundService) DownloadMacro(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
+func (s *SoundService) PlayMacro(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	var macro Macro
+	var sounds []Sound
+
+	if s.db.First(&sounds, "id = ?", id); macro.Id == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	s.db.Preload("PositionalSounds")
+
+
+
+	channels, _ := r.URL.Query()["channel"]
+	if len(channels) == 0 {
+		channels = append(channels, "*")
+	}
+
+	channelSet := ChannelSet{}
+	for _, channel := range channels {
+		channelSet.Add(&Channel{Value: channel})
+	}
+
+	message := NewPlaySoundMessage(channelSet, macro.Id, macro.NSFW)
+	s.wsService.SendMessage(message)
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *SoundService) Speak(w http.ResponseWriter, r *http.Request) {
@@ -335,7 +472,7 @@ func (s *SoundService) Speak(w http.ResponseWriter, r *http.Request) {
 	hashedName := hashSpeakName(data.Text)
 	s.db.Where("name = ?", hashedName).First(&sound)
 	if sound.Id != "" {
-		s.wsService.SendMessage(NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW))
+		s.wsService.SendMessage(NewPlaySoundMessage(channelSet, sound))
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(sound)
 		return
@@ -373,7 +510,7 @@ func (s *SoundService) Speak(w http.ResponseWriter, r *http.Request) {
 	s.db.Create(&sound)
 	sound.Visible = false
 	s.db.Save(&sound)
-	s.wsService.SendMessage(NewPlaySoundMessage(channelSet, sound.Id, sound.NSFW))
+	s.wsService.SendMessage(NewPlaySoundMessage(channelSet, sound))
 
 	// return response
 	w.Header().Add("Content-Type", "application/json")
