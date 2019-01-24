@@ -15,14 +15,14 @@ import (
 )
 
 type ListSoundResponse struct {
-	Count int `json:"count"`
-	Offset int `json:"offset"`
+	Count   int     `json:"count"`
+	Offset  int     `json:"offset"`
 	Results []Sound `json:"results"`
 }
 
 type ListMacroResponse struct {
-	Count int `json:"count"`
-	Offset int `json:"offset"`
+	Count   int     `json:"count"`
+	Offset  int     `json:"offset"`
 	Results []Macro `json:"results"`
 }
 
@@ -39,7 +39,7 @@ type SpeakForm struct {
 }
 
 type MacroForm struct {
-	Name string `json:"name"`
+	Name   string   `json:"name"`
 	Sounds []string `json:"sounds"`
 }
 
@@ -48,10 +48,10 @@ type SoundService struct {
 	pageSize       int
 	maxSoundLength int
 
-	db             *gorm.DB
-	wsService      *WebsocketService
-	searchService  *SearchService
-	bluemixKey string
+	db            *gorm.DB
+	wsService     *WebsocketService
+	searchService *SearchService
+	bluemixKey    string
 }
 
 func NewSoundService(backendURL string, pageSize int, maxSoundLength int, db *gorm.DB, wsService *WebsocketService, searchService *SearchService, bluemixKey string) *SoundService {
@@ -87,14 +87,12 @@ func NewSoundService(backendURL string, pageSize int, maxSoundLength int, db *go
 func (s *SoundService) RegisterRoutes(parent *mux.Router, prefix string) *mux.Router {
 	router := parent.PathPrefix(prefix).Subrouter()
 
-	// TODO routes
 	router.HandleFunc("/sound", s.ListSound).Methods("GET")
 	router.HandleFunc("/sound", s.CreateSound).Methods("POST")
 	router.HandleFunc("/sound/{id}", s.GetSound).Methods("GET")
 	router.HandleFunc("/sound/{id}/download", s.DownloadSound).Methods("GET")
 	router.HandleFunc("/sound/{id}/play", s.PlaySound).Methods("POST")
 
-	// TODO routes
 	router.HandleFunc("/macro", s.ListMacro).Methods("GET")
 	router.HandleFunc("/macro", s.CreateMacro).Methods("POST")
 	router.HandleFunc("/macro/{id}", s.GetMacro).Methods("GET")
@@ -251,7 +249,7 @@ func (s *SoundService) DownloadSound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *SoundService) PlaySound(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"] // TODO streaming
+	id := mux.Vars(r)["id"]
 	var sound Sound
 
 	if s.db.Select("Id", "NSFW").Where("id = ?", id).First(&sound); sound.Id != "" {
@@ -312,8 +310,8 @@ func (s *SoundService) CreateMacro(w http.ResponseWriter, r *http.Request) {
 		Request: r,
 		Data:    &data,
 		Rules: govalidator.MapData{
-			"name":     []string{"required"},
-			"sounds":     []string{"required"},
+			"name":   []string{"required"},
+			"sounds": []string{"required"},
 		},
 	}).ValidateJSON()
 
@@ -399,19 +397,11 @@ func (s *SoundService) CreateMacro(w http.ResponseWriter, r *http.Request) {
 
 func (s *SoundService) PlayMacro(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	var macro Macro
-	var sounds []Sound
-
-	if s.db.First(&sounds, "id = ?", id); macro.Id == "" {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	s.db.Preload("PositionalSounds")
-
-
-
 	channels, _ := r.URL.Query()["channel"]
+	var exists bool = false
+
+	const Q = "select s.id, s.NSFW from positional_sound as ps join sounds s on s.id = ps.sound_id where ps.macro_id = \"?\""
+
 	if len(channels) == 0 {
 		channels = append(channels, "*")
 	}
@@ -421,8 +411,20 @@ func (s *SoundService) PlayMacro(w http.ResponseWriter, r *http.Request) {
 		channelSet.Add(&Channel{Value: channel})
 	}
 
-	message := NewPlaySoundMessage(channelSet, macro.Id, macro.NSFW)
-	s.wsService.SendMessage(message)
+	sounds, _ := db.Raw(Q, id).Rows()
+	defer func() { _ = sounds.Close() }()
+	for sounds.Next() {
+		exists = true
+		var sound api.Sound
+
+		_ = db.ScanRows(sounds, &sound)
+		s.wsService.SendMessage(NewPlaySoundMessage(channels, sound))
+	}
+
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -480,10 +482,9 @@ func (s *SoundService) Speak(w http.ResponseWriter, r *http.Request) {
 		sound = NewSound(hashedName, data.NSFW, false)
 	}
 
-
 	textToSpeech, err := texttospeechv1.NewTextToSpeechV1(&texttospeechv1.TextToSpeechV1Options{
 		IAMApiKey: s.bluemixKey,
-		URL: "https://gateway-wdc.watsonplatform.net/text-to-speech/api",
+		URL:       "https://gateway-wdc.watsonplatform.net/text-to-speech/api",
 	})
 
 	format := "audio/wav"
@@ -498,7 +499,6 @@ func (s *SoundService) Speak(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
 
 	// put sound in backend
 	if err := s.backend.PutSound(sound, textToSpeech.GetSynthesizeResult(resp)); err != nil {
