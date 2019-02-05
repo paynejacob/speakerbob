@@ -81,7 +81,7 @@ func serve() {
 	log.Print("registering routes")
 	authService.RegisterRoutes(router, "/auth")
 	searchService.RegisterRoutes(router, "/api/search").Use(authService.AuthenticationMiddleware)
-	soundService.RegisterRoutes(router, "/api/sound").Use(authService.AuthenticationMiddleware)
+	soundService.RegisterRoutes(router, "/api").Use(authService.AuthenticationMiddleware)
 	wsService.RegisterRoutes(router, "/api/ws").Use(authService.AuthenticationMiddleware)
 	router.Handle("/", http.FileServer(http.Dir("/etc/speakerbob/assets")))
 
@@ -104,7 +104,17 @@ func hydrateIndex(searchService *api.SearchService, db *gorm.DB) {
 		var sound api.Sound
 
 		_ = db.ScanRows(sounds, &sound)
-		_ = searchService.UpdateResult(api.SoundSearchResult(sound))
+		_ = searchService.UpdateResult(sound)
+
+	}
+
+	macros, _ := db.Model(api.Macro{}).Rows()
+	defer func() {_ = macros.Close() }()
+	for macros.Next() {
+		var macro api.Macro
+
+		_ = db.ScanRows(macros, &macro)
+		_ = searchService.UpdateResult(macro)
 
 	}
 }

@@ -1,7 +1,9 @@
 package internal
 
 import (
+	"github.com/google/uuid"
 	"hash/fnv"
+	"strings"
 )
 
 type Set map[uint64]string
@@ -47,4 +49,8 @@ func (s Set) Values() []string {
 
 func (s Set) Empty() bool {
 	return len(s) > 0
+}
+
+func NewId() string {
+	return strings.Replace(uuid.New().String(), "-", "", 4)
 }
