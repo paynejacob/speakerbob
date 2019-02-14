@@ -411,14 +411,14 @@ func (s *SoundService) PlayMacro(w http.ResponseWriter, r *http.Request) {
 		channelSet.Add(&Channel{Value: channel})
 	}
 
-	sounds, _ := db.Raw(Q, id).Rows()
+	sounds, _ := s.db.Raw(Q, id).Rows()
 	defer func() { _ = sounds.Close() }()
 	for sounds.Next() {
 		exists = true
-		var sound api.Sound
+		var sound Sound
 
-		_ = db.ScanRows(sounds, &sound)
-		s.wsService.SendMessage(NewPlaySoundMessage(channels, sound))
+		_ = s.db.ScanRows(sounds, &sound)
+		s.wsService.SendMessage(NewPlaySoundMessage(channelSet, sound))
 	}
 
 	if !exists {
