@@ -11,6 +11,7 @@ services:
     volumes:
       - speakerbob:/etc/speakerbob
       - sounds:/etc/speakerbob/sounds
+      - web/dist:/etc/speakerbob/assets
 
 volumes:
   sounds:

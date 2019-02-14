@@ -83,7 +83,7 @@ func serve() {
 	searchService.RegisterRoutes(router, "/api/search").Use(authService.AuthenticationMiddleware)
 	soundService.RegisterRoutes(router, "/api").Use(authService.AuthenticationMiddleware)
 	wsService.RegisterRoutes(router, "/api/ws").Use(authService.AuthenticationMiddleware)
-	router.Handle("/", http.FileServer(http.Dir("/etc/speakerbob/assets")))
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir("/etc/speakerbob/assets")))
 
 	log.Print("Hydrating search index")
 	hydrateIndex(searchService, db)

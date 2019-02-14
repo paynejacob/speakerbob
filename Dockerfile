@@ -1,6 +1,6 @@
 FROM node:alpine as uibuild
-WORKDIR /app
-COPY web /app
+WORKDIR /ui
+COPY web /ui
 RUN apk add --no-cache yarn
 RUN yarn install --no-lockfile --silent --cache-folder .yc \
     && yarn build
@@ -18,6 +18,6 @@ RUN apk add --no-cache ffmpeg
 VOLUME ["/etc/speakerbob", "/etc/speakerbob/sounds"]
 WORKDIR /root/
 COPY --from=gobuild /go/src/speakerbob/speakerbob /usr/local/bin/speakerbob
-COPY --from=uibuild /go/src/speakerbob/web/dist/* /etc/speakerbob/assets
+COPY --from=uibuild /ui/dist /etc/speakerbob/assets
 EXPOSE 80
-ENTRYPOINT ["/usr/local/bin/speakerbob"]
+CMD ["/usr/local/bin/speakerbob"]
