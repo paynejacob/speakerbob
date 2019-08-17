@@ -3,16 +3,13 @@ version: "3.7"
 services:
   speakerbob:
     build: .
-    ports:
-      - "8080:8080"
     environment:
-      - PORT=8080
-      - AUTHBACKENDURL=
+      - PORT=80
+#      - AUTHBACKENDURL=memory://
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
     volumes:
-      - speakerbob:/etc/speakerbob
-      - sounds:/etc/speakerbob/sounds
-      - "./web/dist:/etc/speakerbob/assets"
-
-volumes:
-  sounds:
-  speakerbob:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./web/dist:/var/www

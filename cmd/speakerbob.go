@@ -79,7 +79,7 @@ func serve() {
 	soundService := api.NewSoundService(config.SoundBackendURL, config.PageSize, config.MaxSoundLength, db, wsService, searchService, config.BluemixAPIKey)
 
 	log.Print("registering routes")
-	authService.RegisterRoutes(router, "/auth")
+	authService.RegisterRoutes(router, "/api/auth")
 	searchService.RegisterRoutes(router, "/api/search").Use(authService.AuthenticationMiddleware)
 	soundService.RegisterRoutes(router, "/api").Use(authService.AuthenticationMiddleware)
 	wsService.RegisterRoutes(router, "/api/ws").Use(authService.AuthenticationMiddleware)
