@@ -84,6 +84,7 @@ func (s *Service) create(w http.ResponseWriter, r *http.Request) {
 
 		sound, err = s.soundStore.Create(fileHeader.Filename, data)
 		if err != nil {
+			logrus.Errorf("failed to create sound: %s  -- %s", fileHeader.Filename, err.Error())
 			w.WriteHeader(http.StatusInternalServerError) // TODO: determine file is bad or upload is bad
 			return
 		}

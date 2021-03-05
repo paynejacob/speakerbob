@@ -11,7 +11,6 @@ import (
 //go:generate go run generator.go
 
 type Service struct {
-
 }
 
 func NewService() *Service {
@@ -26,7 +25,7 @@ func (s Service) Run() {
 	return
 }
 
-func(s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/")
 
 	if r.URL.Path == "" || r.URL.Path == "/" {
@@ -62,10 +61,9 @@ func setCacheHeader(w http.ResponseWriter, path string) {
 		w.Header().Set("Cache-Control", "max-age=2592000s") // 30d
 	} else if extension == ".css" {
 		w.Header().Set("Cache-Control", "max-age=2592000s") // 30d
-	}else if extension == ".ico" {
+	} else if extension == ".ico" {
 		w.Header().Set("Cache-Control", "max-age=2592000s") // 30d
 	} else {
 		w.Header().Set("Cache-Control", "no-cache")
 	}
 }
-

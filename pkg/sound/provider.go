@@ -58,7 +58,7 @@ func (p *Store) Create(filename string, data io.ReadCloser) (sound Sound, err er
 	defer p.m.Unlock()
 
 	uploadBuf := buf
-	_, err = p.PutObject(context.TODO(), p.bucketName, sound.Id, &uploadBuf, -1, minio.PutObjectOptions{})
+	_, err = p.PutObject(context.TODO(), p.bucketName, sound.Id, &uploadBuf, int64(uploadBuf.Len()), minio.PutObjectOptions{ContentType: "audio/mp3"})
 	if err != nil {
 		return
 	}
@@ -147,14 +147,12 @@ func (p *Store) UninitializedSounds() []Sound {
 
 	sounds := make([]Sound, 0)
 
-	var i int
 	for _, sound := range p.sounds {
 		if sound.Name != "" {
 			continue
 		}
 
-		sounds[i] = sound
-		i++
+		sounds = append(sounds, sound)
 	}
 
 	return sounds

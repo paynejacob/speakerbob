@@ -24,16 +24,15 @@ export default class PlaySearch extends Vue {
   private query = '';
   private isLoading = false;
   private sounds: Sound[] = [];
-  private timerId: number = 0
+  private timerId = 0
 
-  mounted() {
-    this.search("")
+  mounted () {
+    this.search('')
   }
 
   @Watch('query')
   private async search (query: string) {
     clearTimeout(this.timerId)
-
 
     this.timerId = setTimeout(async () => {
       const resp = await axios.request({

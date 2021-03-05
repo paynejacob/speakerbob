@@ -22,17 +22,17 @@
 </template>
 
 <script lang="ts">
-import {Component, Vue, Watch} from 'vue-property-decorator'
+import { Component, Vue, Watch } from 'vue-property-decorator'
 import axios from 'axios'
 import { Sound } from '@/definitions/sound'
 
 @Component
 export default class CreateSound extends Vue {
-  private valid: boolean = false;
+  private valid = false;
 
   private file: any = null;
   private fileRules: any[] = [
-    (v: any) => !!v || 'Sound file is required',
+    (v: any) => !!v || 'Sound file is required'
   ];
 
   private name = '';
@@ -40,7 +40,7 @@ export default class CreateSound extends Vue {
     (v: any) => !!v || 'Name is required'
   ];
 
-  public nsfw: boolean = false;
+  public nsfw = false;
 
   private sound: Sound = {
     id: '',
@@ -88,7 +88,7 @@ export default class CreateSound extends Vue {
     this.$emit('submit')
   }
 
-  public reset() {
+  public reset () {
     const form: any = this.$refs.form
     form.reset()
   }

@@ -49,24 +49,26 @@
 import Vue from 'vue'
 import PlaySearch from '@/components/PlaySearch.vue'
 import CreateSound from '@/components/CreateSound.vue'
-import {Component, Watch} from 'vue-property-decorator'
-import UserCount from "@/components/UserCount.vue";
-import ConnectionStatus from "@/components/ConnectionStatus.vue";
+import { Component, Watch } from 'vue-property-decorator'
+import UserCount from '@/components/UserCount.vue'
+import ConnectionStatus from '@/components/ConnectionStatus.vue'
 
-@Component({ components: {ConnectionStatus, UserCount, PlaySearch, CreateSound } })
+@Component({ components: { ConnectionStatus, UserCount, PlaySearch, CreateSound } })
 export default class App extends Vue {
   private fab = false;
   private createSoundModal = false;
-  private connected: boolean = false;
-  private userCount: number = 0;
+  private connected = false;
+  private userCount = 0;
   private connection!: WebSocket;
 
-  created() {
+  created () {
     this.connect()
   }
 
-  private connect() {
-    this.connection = new WebSocket(`ws://${window.location.hostname}:${window.location.port}/ws/`)
+  private connect () {
+    const proto = (window.location.protocol === 'https:') ? 'wss' : 'ws'
+
+    this.connection = new WebSocket(`${proto}://${window.location.hostname}:${window.location.port}/ws/`)
 
     this.connection.onopen = this.connectionOpen
     this.connection.onclose = this.connectionClose
@@ -74,36 +76,36 @@ export default class App extends Vue {
     this.connection.onmessage = this.readMessage
   }
 
-  private connectionOpen() {
+  private connectionOpen () {
     this.connected = true
   }
 
-  private connectionClose() {
+  private connectionClose () {
     this.connected = false
 
     setTimeout(this.connect, 500)
   }
 
-  private readMessage(event: MessageEvent) {
+  private readMessage (event: MessageEvent) {
     const message = JSON.parse(event.data)
 
     switch (message.type) {
       case 'connection_count':
         this.userCount = message.payload.count
-            break
+        break
       case 'play':
         const audio = new Audio(`/sound/${message.payload.sound.id}/download/`)
         audio.play()
     }
   }
 
-  private resetCreateSoundForm() {
+  private resetCreateSoundForm () {
     const createSoundForm: any = this.$refs.createSoundForm
     createSoundForm.reset()
   }
 
   @Watch('createSoundModal')
-  private createSoundModalChange(value: boolean) {
+  private createSoundModalChange (value: boolean) {
     if (value) {
       return
     }
