@@ -30,6 +30,12 @@ export default class PlaySearch extends Vue {
     this.search('')
   }
 
+  public async refresh () {
+    this.query = ''
+
+    await this.search(this.query)
+  }
+
   @Watch('query')
   private async search (query: string) {
     clearTimeout(this.timerId)
@@ -51,7 +57,6 @@ export default class PlaySearch extends Vue {
     }, 250)
   }
 
-  @Watch('soundId')
   private async playSound (soundId: string) {
     await axios.request({
       method: 'PUT',
