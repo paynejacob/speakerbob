@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+go mod tidy
+
+for d in pkg/* ; do
+pushd "$d" || exit
+  go fmt .
+popd || exit
+done
+
+go fmt main.go
+go fmt cmd
+
+pushd web/speakerbob || exit
+yarn lint
+popd || exit

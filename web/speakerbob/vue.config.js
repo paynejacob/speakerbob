@@ -1,5 +1,6 @@
 module.exports = {
   lintOnSave: false,
+  productionSourceMap: false,
   devServer: {
     proxy: {
       '/ws/': {
@@ -7,7 +8,7 @@ module.exports = {
         ws: true,
         changeOrigin: false,
         onProxyReq: function (request) {
-          request.setHeader("origin", "http://localhost:8080");
+          request.setHeader('origin', 'http://localhost:8080')
         }
       },
       '/sound/': {
