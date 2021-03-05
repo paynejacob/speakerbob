@@ -13,7 +13,7 @@
         <v-container fluid>
           <v-row>
             <v-col offset-md="3" md="6" sm="12">
-              <PlaySearch />
+              <PlaySearch ref="playSearch" />
             </v-col>
           </v-row>
         </v-container>
@@ -109,6 +109,10 @@ export default class App extends Vue {
     if (value) {
       return
     }
+
+    const playSearch: any = this.$refs.playSearch
+
+    playSearch.refresh()
 
     this.resetCreateSoundForm()
   }
