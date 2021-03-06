@@ -41,6 +41,9 @@
           </v-card>
         </v-dialog>
       </v-card>
+      <v-overlay :value="showOverlay">
+        <v-btn @click="dismissOverlay">Click here to start Speakerbob</v-btn>
+      </v-overlay>
     </v-main>
   </v-app>
 </template>
@@ -61,8 +64,12 @@ export default class App extends Vue {
   private userCount = 0;
   private connection!: WebSocket;
 
+  private audio!: Audio;
+  private showOverlay = false;
+
   created () {
     this.connect()
+    this.audio = new Audio()
   }
 
   private connect () {
@@ -86,7 +93,7 @@ export default class App extends Vue {
     setTimeout(this.connect, 500)
   }
 
-  private readMessage (event: MessageEvent) {
+  private async readMessage (event: MessageEvent) {
     const message = JSON.parse(event.data)
 
     switch (message.type) {
@@ -94,8 +101,13 @@ export default class App extends Vue {
         this.userCount = message.payload.count
         break
       case 'play':
-        const audio = new Audio(`/sound/${message.payload.sound.id}/download/`)
-        audio.play()
+        this.audio.src =
+          `/sound/${message.payload.sound.id}/download/`
+        try {
+          await this.audio.play()
+        } catch {
+          this.showOverlay = true
+        }
     }
   }
 
@@ -115,6 +127,13 @@ export default class App extends Vue {
     playSearch.refresh()
 
     this.resetCreateSoundForm()
+  }
+
+  private dismissOverlay () {
+    this.audio.src = ''
+    this.audio.play()
+
+    this.showOverlay = false
   }
 }
 </script>
