@@ -64,7 +64,7 @@ export default class App extends Vue {
   private userCount = 0;
   private connection!: WebSocket;
 
-  private audio!: Audio;
+  private audio!: HTMLAudioElement;
   private showOverlay = false;
 
   created () {
