@@ -31,3 +31,5 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   echo "bad js formatting!"
   exit 1
 fi
+
+docker build --no-cache .
