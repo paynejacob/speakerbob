@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/viper"
 	"log"
 	"net/http"
+	"time"
 )
 
 var (
@@ -43,10 +44,21 @@ var serverCmd = &cobra.Command{
 func Server(*cobra.Command, []string) {
 	r := mux.NewRouter()
 
+	level, err := logrus.ParseLevel(logLevelString)
+	if err != nil {
+		panic(err)
+	}
+	logrus.SetLevel(level)
+
 	minioClient, err := minio.New(s3Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(s3Key, s3Secret, ""),
 		Secure: true,
 	})
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	durationLimit, err := time.ParseDuration(durationLimitString)
 	if err != nil {
 		logrus.Fatal(err)
 	}
