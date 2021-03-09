@@ -22,7 +22,7 @@ func (i *Index) IndexSound(sound Sound) {
 	i.m.Lock()
 	defer i.m.Unlock()
 
-	tokens := strings.Split(sound.Name, " ")
+	tokens := strings.Split(strings.ToLower(sound.Name), " ")
 	for _, token := range tokens {
 		root := i.root
 		for _, c := range token {
@@ -52,7 +52,7 @@ func (i *Index) Search(query string) []string {
 	// walk tree, return final nodes results
 	var found bool
 	var nextRoot *Node
-	for _, c := range query {
+	for _, c := range strings.ToLower(query) {
 		char = byte(c)
 		if nextRoot, found = root.children[char]; found {
 			root = nextRoot
