@@ -126,16 +126,14 @@ func (p *Store) All() []Sound {
 	p.m.RLock()
 	defer p.m.RUnlock()
 
-	sounds := make([]Sound, len(p.sounds))
+	sounds := make([]Sound, 0)
 
-	var i int
 	for _, sound := range p.sounds {
 		if sound.Name == "" {
 			continue
 		}
 
-		sounds[i] = sound
-		i++
+		sounds = append(sounds, sound)
 	}
 
 	return sounds
