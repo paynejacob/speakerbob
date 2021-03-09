@@ -8,7 +8,7 @@
       </v-row>
       <v-row>
         <v-col>
-          <v-file-input v-model="file" :rules="fileRules" label="sound file" />
+          <v-file-input v-model="file" :rules="fileRules" :error="!!fileErrors.length" :error-messages="fileErrors" label="sound file" />
         </v-col>
         <v-col md="2">
           <v-switch v-model="nsfw" label="NSFW" />
@@ -24,13 +24,13 @@
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator'
 import axios from 'axios'
-import { Sound } from '@/definitions/sound'
 
 @Component
 export default class CreateSound extends Vue {
   private valid = false;
 
   private file: any = null;
+  private fileErrors: string[] = [];
   private fileRules: any[] = [
     (v: any) => !!v || 'Sound file is required'
   ];
@@ -42,11 +42,7 @@ export default class CreateSound extends Vue {
 
   public nsfw = false;
 
-  private sound: Sound = {
-    id: '',
-    name: '',
-    nsfw: false
-  };
+  private soundId = '';
 
   @Watch('file')
   private async uploadFile (file: File | null) {
@@ -61,26 +57,33 @@ export default class CreateSound extends Vue {
       data: form,
       headers: {
         'content-type': 'multipart/form-data'
-      }
+      },
+      validateStatus: () => true
     })
 
-    this.sound = resp.data
+    if (resp.status > 199 && resp.status <= 299) {
+      this.soundId = resp.data.id
+      this.fileErrors = []
+    } else {
+      this.fileErrors = ['invalid audio file']
+    }
   }
 
   private async saveSound () {
     const form: any = this.$refs.form
 
-    this.sound.name = this.name
-    this.sound.nsfw = this.nsfw
-
-    if (!form.validate()) {
+    if (!form.validate() || !!this.fileErrors.length) {
       return
     }
 
     await axios.request({
       method: 'PATCH',
-      url: `/sound/${this.sound.id}/`,
-      data: this.sound
+      url: `/sound/${this.soundId}/`,
+      data: {
+        id: this.soundId,
+        name: this.name,
+        nsfw: this.nsfw
+      }
     })
 
     this.reset()
@@ -91,6 +94,8 @@ export default class CreateSound extends Vue {
   public reset () {
     const form: any = this.$refs.form
     form.reset()
+    this.soundId = ''
+    this.fileErrors = []
   }
 }
 
