@@ -2,20 +2,18 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"log"
 	"os"
-	"time"
 )
 
 var (
-	s3Endpoint    string
-	s3Key         string
-	s3Secret      string
-	s3Bucket      string
-	durationLimit time.Duration
+	s3Endpoint          string
+	s3Key               string
+	s3Secret            string
+	s3Bucket            string
+	durationLimitString string
+	logLevelString      string
 )
 
 var rootCmd = &cobra.Command{
@@ -32,8 +30,6 @@ func Execute() {
 }
 
 func init() {
-	var err error
-
 	s3EndpointFlag := "s3endpoint"
 	rootCmd.PersistentFlags().StringVar(&s3Endpoint, s3EndpointFlag, "s3.us-east-2.amazonaws.com", "")
 	_ = viper.BindPFlag(s3EndpointFlag, rootCmd.PersistentFlags().Lookup(s3EndpointFlag))
@@ -54,22 +50,10 @@ func init() {
 	_ = rootCmd.MarkPersistentFlagRequired(s3BucketFlag)
 
 	logLevelFlag := "loglevel"
-	var logLevelString string
-	var logLevel logrus.Level
 	rootCmd.PersistentFlags().StringVar(&logLevelString, logLevelFlag, "info", "")
 	_ = viper.BindPFlag(logLevelFlag, rootCmd.PersistentFlags().Lookup(logLevelFlag))
-	logLevel, err = logrus.ParseLevel(logLevelString)
-	if err != nil {
-		log.Fatal(err)
-	}
-	logrus.SetLevel(logLevel)
 
-	var durationLimitString string
 	durationLimitFlag := "durationlimit"
-	serverCmd.Flags().StringVar(&durationLimitString, durationLimitFlag, "5s", "maximum duration of an uploaded sound.")
+	rootCmd.PersistentFlags().StringVar(&durationLimitString, durationLimitFlag, "5s", "maximum duration of an uploaded sound.")
 	_ = viper.BindPFlag(durationLimitFlag, rootCmd.PersistentFlags().Lookup(durationLimitFlag))
-	durationLimit, err = time.ParseDuration(durationLimitString)
-	if err != nil {
-		log.Fatal(err)
-	}
 }
