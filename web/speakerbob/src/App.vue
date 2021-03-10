@@ -105,8 +105,10 @@ export default class App extends Vue {
           `/sound/${message.payload.sound.id}/download/`
         try {
           await this.audio.play()
-        } catch {
-          this.showOverlay = true
+        } catch (e) {
+          if (e.name === 'NotAllowedError') {
+            this.showOverlay = true
+          }
         }
     }
   }
