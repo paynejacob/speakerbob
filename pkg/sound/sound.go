@@ -1,6 +1,8 @@
 package sound
 
 import (
+	"bytes"
+	"encoding/gob"
 	"github.com/google/uuid"
 	"strings"
 	"time"
@@ -20,4 +22,20 @@ func NewSound() Sound {
 		Id:        strings.Replace(uuid.New().String(), "-", "", 4),
 		CreatedAt: time.Now(),
 	}
+}
+
+func (s Sound) Bytes() []byte {
+	var buf bytes.Buffer
+
+	_ = gob.NewEncoder(&buf).Encode(s)
+
+	return buf.Bytes()
+}
+
+func (s Sound) Key() []byte {
+	return append([]byte{SoundKeyPrefix}, []byte(s.Id)...)
+}
+
+func (s Sound) AudioKey() []byte {
+	return append([]byte{AudioKeyPrefix}, []byte(s.Id)...)
 }

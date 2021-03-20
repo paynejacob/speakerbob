@@ -11,11 +11,11 @@ import (
 type Service struct {
 	playQueue *queue
 
-	soundStore       *sound.Store
+	soundStore       *sound.Provider
 	websocketService *websocket.Service
 }
 
-func NewService(soundStore *sound.Store, websocketService *websocket.Service) *Service {
+func NewService(soundStore *sound.Provider, websocketService *websocket.Service) *Service {
 	return &Service{playQueue: newQueue(), websocketService: websocketService, soundStore: soundStore}
 }
 
@@ -32,11 +32,12 @@ func (s *Service) Run() {
 }
 
 func (s *Service) playSound(w http.ResponseWriter, r *http.Request) {
-	soundId := mux.Vars(r)["soundId"]
 	var _sound sound.Sound
 	var err error
 
-	_sound, err = s.soundStore.Get(soundId)
+	_sound.Id = mux.Vars(r)["soundId"]
+
+	err = s.soundStore.GetSound(&_sound)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

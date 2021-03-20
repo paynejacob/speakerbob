@@ -62,6 +62,13 @@ tolerations: []
 
 affinity: {}
 
-durationLimit: 10S
+durationLimit: 10s
 
 secretName: speakerbob-credentials
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  accessMode: "ReadWriteOnce"
+  size: "10Gi"
+  annotations: {}

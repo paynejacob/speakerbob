@@ -2,9 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/dgraph-io/badger/v3"
 	"github.com/gorilla/mux"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/paynejacob/speakerbob/pkg/play"
 	"github.com/paynejacob/speakerbob/pkg/sound"
 	"github.com/paynejacob/speakerbob/pkg/static"
@@ -50,28 +49,25 @@ func Server(*cobra.Command, []string) {
 	}
 	logrus.SetLevel(level)
 
-	minioClient, err := minio.New(s3Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(s3Key, s3Secret, ""),
-		Secure: true,
-	})
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
 	durationLimit, err := time.ParseDuration(durationLimitString)
 	if err != nil {
 		logrus.Fatal(err)
 	}
 
-	soundStore := sound.NewStore(minioClient, s3Bucket, durationLimit)
+	db, err := badger.Open(badger.DefaultOptions(dataPath))
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	soundProvider := sound.NewProvider(db, durationLimit)
 
 	websocketService := websocket.NewService()
 	websocketService.RegisterRoutes(r, "/ws")
 
-	playService := play.NewService(soundStore, websocketService)
+	playService := play.NewService(soundProvider, websocketService)
 	playService.RegisterRoutes(r, "/play")
 
-	soundService := sound.NewService(soundStore)
+	soundService := sound.NewService(soundProvider)
 	soundService.RegisterRoutes(r, "/sound")
 
 	staticService := static.NewService()
