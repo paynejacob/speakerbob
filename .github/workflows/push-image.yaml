@@ -15,5 +15,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - run: docker build -t paynejacob/speakerbob:master-head .
+      - run: VERSION=$(git rev-parse HEAD)
+      - run: docker build --build-arg VERSION=$VERSION -t paynejacob/speakerbob:master-head .
       - run: docker push paynejacob/speakerbob:master-head
