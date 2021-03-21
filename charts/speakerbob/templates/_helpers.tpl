@@ -49,3 +49,8 @@ Selector labels
 app.kubernetes.io/name: {{ include "speakerbob.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+
+{{- define "speakerbob.persistenceClaim" -}}
+{{- default .Chart.Name .Values.persistence.existingClaim   | trunc 63 | trimSuffix "-" }}
+{{- end }}

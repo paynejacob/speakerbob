@@ -24,8 +24,34 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: s3import
+          securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - "speakerbob"
+          args:
+            - "s3import"
+            - "--datapath"
+            - "/data"
+            - "--s3bucket"
+            - "$(S3BUCKET)"
+            - "--s3secret"
+            - "$(S3SECRET)"
+            - "--s3key"
+            - "$(S3KEY)"
+            - "--s3endpoint"
+            - "$(S3ENDPOINT)"
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secretName }}
+          volumeMounts:
+            - mountPath: /data
+              name: data
       containers:
-        - name: {{ .Chart.Name }}
+        - name: speakerbob
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -48,19 +74,16 @@ spec:
             - "speakerbob"
           args:
             - "server"
-            - "--s3bucket"
-            - "$(S3BUCKET)"
-            - "--s3secret"
-            - "$(S3SECRET)"
-            - "--s3key"
-            - "$(S3KEY)"
-            - "--s3endpoint"
-            - "$(S3ENDPOINT)"
+            - "--datapath"
+            - "/data"
             - "--durationlimit"
             - "{{ .Values.durationLimit }}"
           envFrom:
             - secretRef:
                 name: {{ .Values.secretName }}
+          volumeMounts:
+            - mountPath: /data
+              name: data
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -73,3 +96,7 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "speakerbob.persistenceClaim" . }}

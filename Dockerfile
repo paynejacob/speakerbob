@@ -20,5 +20,6 @@ FROM alpine:3.13
 RUN apk add --no-cache ffmpeg
 COPY build/docker/mime.types /etc/mime.types
 COPY --from=gobuild /speakerbob/speakerbob /usr/local/bin/speakerbob
+VOLUME ["/data"]
 EXPOSE 80
 ENTRYPOINT ["/usr/local/bin/speakerbob"]

@@ -2,43 +2,147 @@ package sound
 
 import (
 	"bytes"
-	"context"
-	"fmt"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/tags"
-	"github.com/tcolgate/mp3"
+	"encoding/gob"
+	badger "github.com/dgraph-io/badger/v3"
+	"github.com/paynejacob/speakerbob/pkg/graph"
 	"io"
-	"net/url"
-	"os/exec"
-	"strings"
 	"sync"
 	"time"
 )
 
-const downloadUrlTTL = 60 * time.Second
+const (
+	SoundKeyPrefix byte = iota
+	AudioKeyPrefix
+)
 
-type Store struct {
-	*minio.Client
-	bucketName string
+type Provider struct {
+	maxSoundDuration time.Duration // the maximum length a sound can be
 
-	maxSoundDuration       time.Duration // the maximum length a sound can be
-	soundCreateGracePeriod time.Duration // how long before an unnamed sound is deleted
-
-	m      sync.RWMutex
-	sounds map[string]Sound
+	mu          sync.RWMutex
+	db          *badger.DB
+	searchIndex *graph.Graph
 }
 
-func NewStore(client *minio.Client, bucketName string, maxSoundDuration time.Duration) *Store {
-	return &Store{
-		Client:                 client,
-		bucketName:             bucketName,
-		m:                      sync.RWMutex{},
-		maxSoundDuration:       maxSoundDuration,
-		soundCreateGracePeriod: 1 * time.Hour,
-		sounds:                 map[string]Sound{}}
+func NewProvider(db *badger.DB, maxSoundDuration time.Duration) *Provider {
+	return &Provider{
+		mu:               sync.RWMutex{},
+		maxSoundDuration: maxSoundDuration,
+		db:               db,
+		searchIndex:      graph.NewGraph(),
+	}
 }
 
-func (p *Store) Create(filename string, data io.ReadCloser) (sound Sound, err error) {
+// Sounds
+func (p *Provider) SearchSounds(tokens [][]byte) (sounds []Sound, err error) {
+	keys := make(map[string]bool, 0)
+
+	if len(tokens) == 0 {
+		tokens = append(tokens, []byte{})
+	}
+
+	p.mu.RLock()
+
+	for _, token := range tokens {
+		for _, b := range p.searchIndex.Search(token) {
+			if b[0] == SoundKeyPrefix {
+				keys[string(b[1:])] = true
+			}
+		}
+	}
+
+	p.mu.RUnlock()
+
+	// we load the sounds separately to prevent loading them twice
+	sounds = make([]Sound, len(keys))
+	i := 0
+	for key := range keys {
+		sounds[i].Id = key
+		if err = p.GetSound(&sounds[i]); err != nil {
+			return
+		}
+		i++
+	}
+
+	return
+}
+
+func (p *Provider) GetSound(sound *Sound) error {
+	var err error
+	var item *badger.Item
+	var buf bytes.Buffer
+
+	err = p.db.View(func(txn *badger.Txn) error {
+		item, err = txn.Get(sound.Key())
+		if err != nil {
+			return err
+		}
+
+		err = item.Value(func(val []byte) error {
+			buf.Write(val)
+			return nil
+		})
+
+		return err
+	})
+
+	if err != nil {
+		return err
+	}
+
+	err = gob.NewDecoder(&buf).Decode(&sound)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Provider) AllSounds() (sounds []Sound, err error) {
+	var item *badger.Item
+	var sound Sound
+
+	prefix := []byte{SoundKeyPrefix}
+
+	err = p.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item = it.Item()
+
+			sound = Sound{}
+
+			err = item.Value(func(val []byte) error {
+				return gob.NewDecoder(bytes.NewReader(val)).Decode(&sound)
+			})
+
+			sounds = append(sounds, sound)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	return
+}
+
+func (p *Provider) GetSoundAudio(sound Sound, w io.Writer) error {
+	return p.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(sound.AudioKey())
+		if err != nil {
+			return err
+		}
+
+		return item.Value(func(val []byte) error {
+			_, err = w.Write(val)
+			return err
+		})
+	})
+}
+
+func (p *Provider) CreateSound(filename string, data io.ReadCloser) (sound Sound, err error) {
 	var buf bytes.Buffer
 
 	sound = NewSound()
@@ -54,232 +158,80 @@ func (p *Store) Create(filename string, data io.ReadCloser) (sound Sound, err er
 		return
 	}
 
-	p.m.Lock()
-	defer p.m.Unlock()
+	err = p.db.Update(func(txn *badger.Txn) error {
+		_ = txn.Set(sound.Key(), sound.Bytes())
+		_ = txn.Set(sound.AudioKey(), buf.Bytes())
 
-	uploadBuf := buf
-	_, err = p.PutObject(context.TODO(), p.bucketName, sound.Id, &uploadBuf, int64(uploadBuf.Len()), minio.PutObjectOptions{ContentType: "audio/mp3"})
-	if err != nil {
-		return
-	}
-
-	p.sounds[sound.Id] = sound
-
-	return sound, nil
-}
-
-func (p *Store) Get(soundId string) (Sound, error) {
-	p.m.RLock()
-	defer p.m.RUnlock()
-
-	if sound, ok := p.sounds[soundId]; ok {
-		return sound, nil
-	}
-
-	var sound Sound
-
-	p.m.RUnlock()
-	p.m.Lock()
-	defer p.m.Unlock()
-
-	sound.Id = soundId
-	if err := p.loadFromS3(&sound); err != nil {
-		return sound, err
-	}
-
-	return sound, nil
-}
-
-func (p *Store) Save(sound Sound) (err error) {
-	p.m.Lock()
-	defer p.m.Unlock()
-
-	err = p.saveToS3(&sound)
-	if err != nil {
-		return
-	}
-
-	p.sounds[sound.Id] = sound
+		return nil
+	})
 
 	return
 }
 
-func (p *Store) Delete(sound Sound) (err error) {
-	p.m.Lock()
-	defer p.m.Unlock()
+func (p *Provider) SaveSound(sound Sound) (err error) {
+	var buf bytes.Buffer
 
-	err = p.deleteFromS3(sound)
+	err = gob.NewEncoder(&buf).Encode(sound)
+	if err != nil {
+		return err
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	err = p.db.Update(func(txn *badger.Txn) error {
+		return txn.Set(sound.Key(), sound.Bytes())
+	})
+
 	if err != nil {
 		return
 	}
 
-	delete(p.sounds, sound.Id)
-
-	return
-}
-
-func (p *Store) GetDownloadUrl(sound Sound) (*url.URL, error) {
-	return p.PresignedGetObject(context.TODO(), p.bucketName, sound.Id, downloadUrlTTL, url.Values{})
-}
-
-func (p *Store) All() []Sound {
-	p.m.RLock()
-	defer p.m.RUnlock()
-
-	sounds := make([]Sound, 0)
-
-	for _, sound := range p.sounds {
-		if sound.Name == "" {
-			continue
-		}
-
-		sounds = append(sounds, sound)
-	}
-
-	return sounds
-}
-
-func (p *Store) UninitializedSounds() []Sound {
-	p.m.RLock()
-	defer p.m.RUnlock()
-
-	sounds := make([]Sound, 0)
-
-	for _, sound := range p.sounds {
-		if sound.Name != "" {
-			continue
-		}
-
-		sounds = append(sounds, sound)
-	}
-
-	return sounds
-}
-
-func (p *Store) InitializeCache() error {
-	p.m.Lock()
-	defer p.m.Unlock()
-
-	var _tags *tags.Tags
-	var err error
-
-	for obj := range p.ListObjects(context.TODO(), p.bucketName, minio.ListObjectsOptions{}) {
-		if obj.Err != nil {
-			return obj.Err
-		}
-
-		_tags, err = p.GetObjectTagging(context.TODO(), p.bucketName, obj.Key, minio.GetObjectTaggingOptions{})
-		if err != nil {
-			return err
-		}
-
-		sound := Sound{Id: obj.Key}
-
-		soundFromTagMap(&sound, _tags.ToMap())
-
-		p.sounds[obj.Key] = sound
+	for _, token := range graph.Tokenize(sound.Name) {
+		p.searchIndex.Write(token, sound.Key())
 	}
 
 	return nil
 }
 
-// Storage Actions
-func (p *Store) saveToS3(sound *Sound) (err error) {
-	soundTagMap := make(map[string]string, 0)
+func (p *Provider) DeleteSound(sound Sound) (err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-	soundToTagMap(sound, soundTagMap)
+	err = p.db.Update(func(txn *badger.Txn) error {
+		_ = txn.Delete(sound.Key())
+		_ = txn.Delete(sound.AudioKey())
 
-	soundTags, err := tags.MapToObjectTags(soundTagMap)
+		return nil
+	})
+
+	if err != nil {
+		return
+	}
+
+	p.searchIndex.Delete(sound.Key())
+
+	return
+}
+
+func (p *Provider) HydrateSearch() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	sounds, err := p.AllSounds()
 	if err != nil {
 		return err
 	}
 
-	return p.PutObjectTagging(context.TODO(), p.bucketName, sound.Id, soundTags, minio.PutObjectTaggingOptions{})
-}
-
-func (p *Store) loadFromS3(sound *Sound) error {
-	tagging, err := p.GetObjectTagging(context.TODO(), p.bucketName, sound.Id, minio.GetObjectTaggingOptions{})
-	if err != nil {
-		return err
-	}
-
-	soundFromTagMap(sound, tagging.ToMap())
-
-	return nil
-}
-
-func (p *Store) deleteFromS3(sound Sound) error {
-	return p.RemoveObject(context.TODO(), p.bucketName, sound.Id, minio.RemoveObjectOptions{})
-}
-
-// Serialization
-func soundFromTagMap(sound *Sound, tagMap map[string]string) {
-	if val, ok := tagMap["speakerbob.com/Sound/CreatedAt"]; ok {
-		sound.CreatedAt, _ = time.Parse(time.RFC3339, val)
-	}
-
-	if val, ok := tagMap["speakerbob.com/Sound/Name"]; ok {
-		sound.Name = val
-	}
-
-	if val, ok := tagMap["speakerbob.com/Sound/Duration"]; ok {
-		sound.Duration, _ = time.ParseDuration(val)
-	}
-
-	if val, ok := tagMap["speakerbob.com/Sound/NSFW"]; ok {
-		sound.NSFW = val == "true"
-	}
-}
-
-func soundToTagMap(s *Sound, o map[string]string) {
-	o["speakerbob.com/Sound/Id"] = s.Id
-	o["speakerbob.com/Sound/Name"] = s.Name
-	o["speakerbob.com/Sound/CreatedAt"] = s.CreatedAt.Format(time.RFC3339)
-	o["speakerbob.com/Sound/Duration"] = s.Duration.String()
-	o["speakerbob.com/Sound/NSFW"] = "false"
-	if s.NSFW {
-		o["speakerbob.com/Sound/NSFW"] = "true"
-	}
-}
-
-// Audio Normalization
-func normalizeAudio(filename string, maxDuration time.Duration, r io.ReadCloser, w io.Writer) error {
-	cmd := exec.Command(
-		"ffmpeg",
-		"-y",
-		"-hide_banner",
-		"-loglevel", "info",
-		"-f", strings.Split(filename, ".")[1],
-		"-i", "pipe:0",
-		"-ss", "0",
-		"-t", fmt.Sprintf("%.0f", maxDuration.Seconds()),
-		"-c:a", "libmp3lame",
-		"-filter:a", "loudnorm",
-		"-f", "mp3",
-		"pipe:1")
-	cmd.Stdout = w
-	cmd.Stdin = r
-
-	return cmd.Run()
-}
-
-func getAudioDuration(r io.Reader) (time.Duration, error) {
-	var t int64
-	var f mp3.Frame
-	var skipped int
-
-	d := mp3.NewDecoder(r)
-
-	for {
-		if err := d.Decode(&f, &skipped); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return 0, err
+	for i := range sounds {
+		if sounds[i].Name == "" {
+			continue
 		}
 
-		t = t + f.Duration().Milliseconds()
+		for _, token := range graph.Tokenize(sounds[i].Name) {
+			p.searchIndex.Write(token, sounds[i].Key())
+		}
 	}
 
-	return time.Duration(t) * time.Millisecond, nil
+	return nil
 }
