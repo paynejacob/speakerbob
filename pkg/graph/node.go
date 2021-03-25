@@ -5,66 +5,39 @@ type Node struct {
 
 	parent   *Node
 	children map[byte]*Node
-	values   [][]byte
+	values   map[string]bool
 }
 
 func newNode(char byte) *Node {
-	return &Node{char: char, children: make(map[byte]*Node, 0), values: make([][]byte, 0)}
+	return &Node{char: char, children: make(map[byte]*Node, 0), values: make(map[string]bool, 0)}
 }
 
 func (n *Node) AddValue(value []byte) {
-	if n.HasValue(value) {
-		return
-	}
-
-	n.values = append(n.values, value)
+	n.values[string(value)] = true
 }
 
 func (n *Node) HasValue(value []byte) bool {
 	var found bool
 
-	for i := 0; i < len(n.values); i++ {
-		if len(n.values[i]) == len(value) {
-			found = true
-			for ii := 0; ii < len(value); ii++ {
-				if n.values[i][ii] != value[ii] {
-					found = false
-					break
-				}
-			}
+	_, found = n.values[string(value)]
 
-			if found {
-				return true
-			}
-		}
-	}
-
-	return false
+	return found
 }
 
 func (n *Node) RemoveValue(value []byte) {
-	var found bool
-	var pos int
+	delete(n.values, string(value))
+}
 
-	for i := 0; i < len(n.values); i++ {
-		if len(n.values[i]) == len(value) {
-			found = true
-			for ii := 0; ii < len(value); ii++ {
-				if n.values[i][ii] != value[ii] {
-					found = false
-					break
-				}
-			}
+func (n *Node) Values() [][]byte {
+	rvalues := make([][]byte, len(n.values))
 
-			if found {
-				pos = i
-				break
-			}
-		}
+	i := 0
+	for k, _ := range n.values {
+		rvalues[i] = []byte(k)
+		i++
 	}
 
-	n.values[len(n.values)-1], n.values[pos] = n.values[pos], n.values[len(n.values)-1]
-	n.values = n.values[:len(n.values)-1]
+	return rvalues
 }
 
 func (n *Node) Empty() bool {

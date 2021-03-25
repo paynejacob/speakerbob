@@ -31,12 +31,23 @@
           <v-btn fab dark small color="green" @click="createSoundModal = !createSoundModal">
             <v-icon>fa-volume-up</v-icon>
           </v-btn>
+          <v-btn fab dark small color="green" @click="createGroupModal = !createGroupModal">
+            <v-icon>fa-layer-group</v-icon>
+          </v-btn>
         </v-speed-dial>
         <v-dialog v-model="createSoundModal">
           <v-card>
             <v-card-title>Create Sound</v-card-title>
             <v-card-text>
               <CreateSound ref="createSoundForm" @submit="() => createSoundModal = false" />
+            </v-card-text>
+          </v-card>
+        </v-dialog>
+        <v-dialog v-model="createGroupModal">
+          <v-card>
+            <v-card-title>Create Group</v-card-title>
+            <v-card-text>
+              <CreateGroup ref="createGroupForm" @submit="() => createGroupModal = false" />
             </v-card-text>
           </v-card>
         </v-dialog>
@@ -55,11 +66,13 @@ import CreateSound from '@/components/CreateSound.vue'
 import { Component, Watch } from 'vue-property-decorator'
 import UserCount from '@/components/UserCount.vue'
 import ConnectionStatus from '@/components/ConnectionStatus.vue'
+import CreateGroup from '@/components/CreateGroup.vue'
 
-@Component({ components: { ConnectionStatus, UserCount, PlaySearch, CreateSound } })
+@Component({ components: { CreateGroup, ConnectionStatus, UserCount, PlaySearch, CreateSound } })
 export default class App extends Vue {
   private fab = false;
   private createSoundModal = false;
+  private createGroupModal = false;
   private connected = false;
   private userCount = 0;
   private connection!: WebSocket;
@@ -67,7 +80,7 @@ export default class App extends Vue {
   private audio!: HTMLAudioElement;
   private showOverlay = false;
 
-  created () {
+  mounted () {
     this.connect()
     this.audio = new Audio()
   }
@@ -102,7 +115,7 @@ export default class App extends Vue {
         break
       case 'play':
         this.audio.src =
-          `/sound/${message.payload.sound.id}/download/`
+          `/sound/sound/${message.payload.sound.id}/download/`
         try {
           await this.audio.play()
         } catch (e) {

@@ -30,11 +30,13 @@ func newQueue() *queue {
 	}
 }
 
-func (q *queue) EnqueueSound(s sound.Sound) {
+func (q *queue) EnqueueSounds(sounds ...sound.Sound) {
 	q.m.Lock()
 	defer q.m.Unlock()
 
-	q.sounds = append(q.sounds, s)
+	for i := range sounds {
+		q.sounds = append(q.sounds, sounds[i])
+	}
 
 	q.playChannel <- true
 }

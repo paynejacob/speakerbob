@@ -39,3 +39,30 @@ func (s Sound) Key() []byte {
 func (s Sound) AudioKey() []byte {
 	return append([]byte{AudioKeyPrefix}, []byte(s.Id)...)
 }
+
+type Group struct {
+	Sound
+
+	SoundIds []string `json:"sounds"`
+}
+
+func NewGroup() Group {
+	var g Group
+
+	g.Id = strings.Replace(uuid.New().String(), "-", "", 4)
+	g.CreatedAt = time.Now()
+
+	return g
+}
+
+func (g Group) Key() []byte {
+	return append([]byte{GroupKeyPrefix}, []byte(g.Id)...)
+}
+
+func (g Group) Bytes() []byte {
+	var buf bytes.Buffer
+
+	_ = gob.NewEncoder(&buf).Encode(g)
+
+	return buf.Bytes()
+}

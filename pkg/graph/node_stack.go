@@ -9,7 +9,7 @@ func (s *nodeStack) Empty() bool {
 }
 
 func (s *nodeStack) Pop() *Node {
-	r := s.nodes[len(s.nodes)-1]
+	r := s.nodes[0]
 
 	s.nodes = s.nodes[1:]
 

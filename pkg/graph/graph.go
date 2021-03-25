@@ -44,7 +44,7 @@ func (g *Graph) Search(q []byte) [][]byte {
 		}
 	}
 
-	return root.values
+	return root.Values()
 }
 
 func (g *Graph) Delete(value []byte) {

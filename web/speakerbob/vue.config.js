@@ -13,6 +13,9 @@ module.exports = {
       },
       '/sound/': {
         target: 'http://localhost:8080'
+      },
+      '/play/': {
+        target: 'http://localhost:8080'
       }
     }
   }
