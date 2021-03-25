@@ -2,3 +2,4 @@
 **/node_modules
 **/zz_*.go
 .speakerbob/**
+dist/**

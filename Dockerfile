@@ -6,6 +6,7 @@ RUN yarn install --no-lockfile --silent --cache-folder .yc \
     && yarn build
 
 FROM golang:1.16-alpine3.13 as gobuild
+ARG VERSION=dev
 RUN apk add --no-cache curl gcc musl-dev
 WORKDIR /speakerbob
 COPY cmd cmd
@@ -14,7 +15,7 @@ COPY --from=uibuild /ui/dist assets
 COPY go.* ./
 COPY main.go main.go
 RUN go generate ./...
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o speakerbob main.go
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/cmd.version=$VERSION" -o speakerbob main.go
 
 FROM alpine:3.13
 RUN apk add --no-cache ffmpeg
