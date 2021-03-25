@@ -25,10 +25,16 @@ func (s *Service) RegisterRoutes(parent *mux.Router, prefix string) {
 	router := parent.PathPrefix(prefix).Subrouter()
 
 	router.HandleFunc("/", s.list).Methods("GET")
-	router.HandleFunc("/", s.create).Methods("POST")
-	router.HandleFunc("/{soundId}/", s.update).Methods("PATCH")
-	router.HandleFunc("/{soundId}/", s.delete).Methods("DELETE")
-	router.HandleFunc("/{soundId}/download/", s.download).Methods("GET")
+
+	// sounds
+	router.HandleFunc("/sound/", s.createSound).Methods("POST")
+	router.HandleFunc("/sound/{soundId}/", s.updateSound).Methods("PATCH")
+	router.HandleFunc("/sound/{soundId}/", s.deleteSound).Methods("DELETE")
+	router.HandleFunc("/sound/{soundId}/download/", s.downloadSound).Methods("GET")
+
+	// groups
+	router.HandleFunc("/group/", s.createGroup).Methods("POST")
+	router.HandleFunc("/group/{groupId}/", s.deleteGroup).Methods("DELETE")
 }
 
 func (s *Service) Run() {
@@ -68,7 +74,29 @@ func (s *Service) Run() {
 	}
 }
 
-func (s *Service) create(w http.ResponseWriter, r *http.Request) {
+func (s *Service) list(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var sounds []Sound
+	var groups []Group
+
+	q := r.URL.Query().Get("q")
+
+	sounds, groups, err = s.soundProvider.Search(graph.Tokenize(q))
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(map[string]interface{}{"sounds": sounds, "groups": groups})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *Service) createSound(w http.ResponseWriter, r *http.Request) {
 	var sound Sound
 
 	err := r.ParseMultipartForm(10 << 20)
@@ -101,7 +129,7 @@ func (s *Service) create(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Service) update(w http.ResponseWriter, r *http.Request) {
+func (s *Service) updateSound(w http.ResponseWriter, r *http.Request) {
 	var currentSound Sound
 	var sound Sound
 	var err error
@@ -129,6 +157,11 @@ func (s *Service) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if currentSound.Name != "" {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
 	// write user changes
 	currentSound.Name = sound.Name
 	currentSound.NSFW = sound.NSFW
@@ -139,7 +172,7 @@ func (s *Service) update(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Service) delete(w http.ResponseWriter, r *http.Request) {
+func (s *Service) deleteSound(w http.ResponseWriter, r *http.Request) {
 	var sound Sound
 
 	sound.Id = mux.Vars(r)["soundId"]
@@ -153,28 +186,7 @@ func (s *Service) delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (s *Service) list(w http.ResponseWriter, r *http.Request) {
-	var err error
-	var sounds []Sound
-
-	q := r.URL.Query().Get("q")
-
-	sounds, err = s.soundProvider.SearchSounds(graph.Tokenize(q))
-
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(sounds)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-}
-
-func (s *Service) download(w http.ResponseWriter, r *http.Request) {
+func (s *Service) downloadSound(w http.ResponseWriter, r *http.Request) {
 	var sound Sound
 	var err error
 
@@ -192,4 +204,65 @@ func (s *Service) download(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+}
+
+func (s *Service) createGroup(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	var group Group
+	var userGroup Group
+
+	// decode user request
+	err = json.NewDecoder(r.Body).Decode(&userGroup)
+	if err != nil {
+		w.WriteHeader(http.StatusNotAcceptable)
+		return
+	}
+
+	// names cannot be set to empty
+	if userGroup.Name == "" {
+		w.WriteHeader(http.StatusNotAcceptable)
+		return
+	}
+
+	// validate we have at least 2 sounds
+	if len(userGroup.SoundIds) < 2 {
+		w.WriteHeader(http.StatusNotAcceptable)
+		return
+	}
+
+	// validate sound ids
+	sounds := make([]Sound, len(userGroup.SoundIds))
+	for i := range sounds {
+		sounds[i].Id = userGroup.SoundIds[i]
+		err = s.soundProvider.GetSound(&sounds[i])
+		if err != nil {
+			w.WriteHeader(http.StatusNotAcceptable)
+			return
+		}
+	}
+
+	// create group
+	group, err = s.soundProvider.CreateGroup(userGroup.Name, sounds)
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(group)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *Service) deleteGroup(w http.ResponseWriter, r *http.Request) {
+	var group Group
+
+	group.Id = mux.Vars(r)["groupId"]
+
+	err := s.soundProvider.DeleteGroup(group)
+
+	if err != nil && err != mux.ErrNotFound {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+	w.WriteHeader(http.StatusAccepted)
 }

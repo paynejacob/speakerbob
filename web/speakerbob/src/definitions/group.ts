@@ -1,9 +1,10 @@
-export class Sound {
+export class Group {
   id!: string;
   name!: string;
   nsfw!: boolean;
+  sounds!: string[];
 
   public getPlayUrl (): string {
-    return `/play/sound/${this.id}/`
+    return `/play/group/${this.id}/`
   }
 }

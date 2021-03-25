@@ -1,6 +1,7 @@
 <template>
   <v-list flat>
     <v-subheader><v-text-field prepend-icon="fa-search" v-model="query" /></v-subheader>
+    <v-subheader v-if="sounds.length > 0">Sounds</v-subheader>
     <v-list-item-group>
       <v-list-item v-for="(sound, i) in sounds" :key="i" @click="playSound(sound.id)">
         <v-list-item-icon>
@@ -11,6 +12,17 @@
         </v-list-item-content>
       </v-list-item>
     </v-list-item-group>
+    <v-subheader v-if="groups.length > 0">Groups</v-subheader>
+    <v-list-item-group>
+      <v-list-item v-for="(group, i) in groups" :key="i" @click="playGroup(group.id)">
+        <v-list-item-icon>
+          <v-icon>fa-layer-group</v-icon>
+        </v-list-item-icon>
+        <v-list-item-content>
+          <v-list-item-title v-text="group.name"></v-list-item-title>
+        </v-list-item-content>
+      </v-list-item>
+    </v-list-item-group>
   </v-list>
 </template>
 
@@ -18,12 +30,13 @@
 import { Component, Vue, Watch } from 'vue-property-decorator'
 import axios from 'axios'
 import { Sound } from '@/definitions/sound'
+import { Group } from '@/definitions/group'
 
 @Component
 export default class PlaySearch extends Vue {
   private query = '';
-  private isLoading = false;
   private sounds: Sound[] = [];
+  private groups: Group[] = [];
   private timerId = 0
 
   mounted () {
@@ -50,9 +63,11 @@ export default class PlaySearch extends Vue {
       })
 
       if (resp.data) {
-        this.sounds = resp.data
+        this.sounds = resp.data.sounds
+        this.groups = resp.data.groups
       } else {
         this.sounds = []
+        this.groups = []
       }
     }, 250)
   }
@@ -62,8 +77,13 @@ export default class PlaySearch extends Vue {
       method: 'PUT',
       url: `/play/sound/${soundId}/`
     })
+  }
 
-    this.query = ''
+  private async playGroup (groupId: string) {
+    await axios.request({
+      method: 'PUT',
+      url: `/play/group/${groupId}/`
+    })
   }
 }
 </script>

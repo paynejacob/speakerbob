@@ -23,6 +23,7 @@ func (s *Service) RegisterRoutes(parent *mux.Router, prefix string) {
 	router := parent.PathPrefix(prefix).Subrouter()
 
 	router.HandleFunc("/sound/{soundId}/", s.playSound).Methods("PUT")
+	router.HandleFunc("/group/{groupId}/", s.playGroup).Methods("PUT")
 }
 
 func (s *Service) Run() {
@@ -43,7 +44,34 @@ func (s *Service) playSound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.playQueue.EnqueueSound(_sound)
+	s.playQueue.EnqueueSounds(_sound)
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (s *Service) playGroup(w http.ResponseWriter, r *http.Request) {
+	var group sound.Group
+	var err error
+
+	group.Id = mux.Vars(r)["groupId"]
+
+	err = s.soundStore.GetGroup(&group)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	sounds := make([]sound.Sound, len(group.SoundIds))
+	for i := range group.SoundIds {
+		sounds[i].Id = group.SoundIds[i]
+		err = s.soundStore.GetSound(&sounds[i])
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	s.playQueue.EnqueueSounds(sounds...)
 
 	w.WriteHeader(http.StatusAccepted)
 }
