@@ -1,3 +1,4 @@
 .idea 
 **/node_modules
 **/zz_*.go
+.speakerbob/**
