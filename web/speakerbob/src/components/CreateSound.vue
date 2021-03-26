@@ -15,7 +15,7 @@
         </v-col>
       </v-row>
       <v-row>
-        <v-btn block color="primary" @click="saveSound">Save</v-btn>
+        <v-btn block color="primary" @click="saveSound" :disabled="soundId === ''">Save</v-btn>
       </v-row>
     </v-container>
   </v-form>
@@ -53,7 +53,7 @@ export default class CreateSound extends Vue {
 
     const resp = await axios.request({
       method: 'POST',
-      url: '/sound/',
+      url: '/sound/sound/',
       data: form,
       headers: {
         'content-type': 'multipart/form-data'
@@ -78,7 +78,7 @@ export default class CreateSound extends Vue {
 
     await axios.request({
       method: 'PATCH',
-      url: `/sound/${this.soundId}/`,
+      url: `/sound/sound/${this.soundId}/`,
       data: {
         id: this.soundId,
         name: this.name,
