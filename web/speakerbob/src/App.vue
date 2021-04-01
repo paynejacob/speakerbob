@@ -34,6 +34,9 @@
           <v-btn fab dark small color="green" @click="createGroupModal = !createGroupModal">
             <v-icon>fa-layer-group</v-icon>
           </v-btn>
+          <v-btn fab dark small color="green" @click="sayModal = !sayModal">
+            <v-icon>fa-comment</v-icon>
+          </v-btn>
         </v-speed-dial>
         <v-dialog v-model="createSoundModal">
           <v-card>
@@ -48,6 +51,14 @@
             <v-card-title>Create Group</v-card-title>
             <v-card-text>
               <CreateGroup ref="createGroupForm" @submit="() => createGroupModal = false" />
+            </v-card-text>
+          </v-card>
+        </v-dialog>
+        <v-dialog v-model="sayModal">
+          <v-card>
+            <v-card-title>Say</v-card-title>
+            <v-card-text>
+              <Say ref="sayForm" />
             </v-card-text>
           </v-card>
         </v-dialog>
@@ -67,12 +78,14 @@ import { Component, Watch } from 'vue-property-decorator'
 import UserCount from '@/components/UserCount.vue'
 import ConnectionStatus from '@/components/ConnectionStatus.vue'
 import CreateGroup from '@/components/CreateGroup.vue'
+import Say from '@/components/Say.vue'
 
-@Component({ components: { CreateGroup, ConnectionStatus, UserCount, PlaySearch, CreateSound } })
+@Component({ components: { CreateGroup, ConnectionStatus, UserCount, PlaySearch, CreateSound, Say } })
 export default class App extends Vue {
   private fab = false;
   private createSoundModal = false;
   private createGroupModal = false;
+  private sayModal = false;
   private connected = false;
   private userCount = 0;
   private connection!: WebSocket;

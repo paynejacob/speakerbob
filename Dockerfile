@@ -11,14 +11,15 @@ RUN apk add --no-cache curl gcc musl-dev
 WORKDIR /speakerbob
 COPY cmd cmd
 COPY pkg pkg
-COPY --from=uibuild /ui/dist assets
 COPY go.* ./
+RUN go mod vendor
 COPY main.go main.go
+COPY --from=uibuild /ui/dist assets
 RUN go generate ./...
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/cmd.version=$VERSION" -o speakerbob main.go
 
 FROM alpine:3.13
-RUN apk add --no-cache ffmpeg
+RUN apk add --no-cache ffmpeg flite
 COPY build/docker/mime.types /etc/mime.types
 COPY --from=gobuild /speakerbob/speakerbob /usr/local/bin/speakerbob
 VOLUME ["/data"]

@@ -1,3 +1,4 @@
-web/speakerbob/node_modules
+web/speakerbob/node_modules/**
 .git
 charts/**
+.speakerbob/**

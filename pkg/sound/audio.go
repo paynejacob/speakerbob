@@ -5,11 +5,14 @@ import (
 	"github.com/tcolgate/mp3"
 	"io"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 )
 
-func normalizeAudio(filename string, maxDuration time.Duration, r io.ReadCloser, w io.Writer) error {
+var specialCharacterRgexp = regexp.MustCompile("[^a-zA-Z0-9\\s.?]+")
+
+func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w io.Writer) error {
 	cmd := exec.Command(
 		"ffmpeg",
 		"-y",
@@ -48,4 +51,15 @@ func getAudioDuration(r io.Reader) (time.Duration, error) {
 	}
 
 	return time.Duration(t) * time.Millisecond, nil
+}
+
+func tts(text string, w io.Writer) error {
+	cmd := exec.Command(
+		"flite",
+		"-voice", "slt",
+		"-t", specialCharacterRgexp.ReplaceAllString(text, ""),
+		"-o", "/dev/stdout")
+	cmd.Stdout = w
+
+	return cmd.Run()
 }
