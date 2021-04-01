@@ -165,6 +165,7 @@ func (s *Service) updateSound(w http.ResponseWriter, r *http.Request) {
 	// write user changes
 	currentSound.Name = sound.Name
 	currentSound.NSFW = sound.NSFW
+	currentSound.Hidden = false
 	err = s.soundProvider.SaveSound(currentSound)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

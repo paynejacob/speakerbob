@@ -278,7 +278,7 @@ func (p *Provider) HydrateSearch() error {
 					return err
 				}
 
-				if sound.Name == "" {
+				if sound.Hidden {
 					continue
 				}
 
@@ -404,6 +404,49 @@ func (p *Provider) DeleteGroup(group Group) (err error) {
 	defer p.mu.Unlock()
 
 	p.searchIndex.Delete(group.Key())
+
+	return
+}
+
+// TTS
+func (p *Provider) CreateTextToSpeechSound(text string) (sound Sound, err error) {
+	var buf bytes.Buffer
+	var normBuf bytes.Buffer
+
+	// create a new sound
+	sound = NewSound()
+	sound.Hidden = true
+	sound.Name = "-"
+
+	// generate audio
+	err = tts(text, &buf)
+	if err != nil {
+		return
+	}
+
+	// normalize audio
+	err = normalizeAudio("f.wav", p.maxSoundDuration, &buf, &normBuf)
+	if err != nil {
+		return
+	}
+
+	// get the sound duration
+	durationBuf := normBuf
+	sound.Duration, err = getAudioDuration(&durationBuf)
+	if err != nil {
+		return
+	}
+
+	// persist to db
+	exp := uint64(time.Now().Add(cleanupInterval).Unix())
+	soundEntry := &badger.Entry{Key: sound.Key(), Value: sound.Bytes(), ExpiresAt: exp}
+	audioEntry := &badger.Entry{Key: sound.AudioKey(), Value: normBuf.Bytes(), ExpiresAt: exp}
+	err = p.db.Update(func(txn *badger.Txn) error {
+		_ = txn.SetEntry(soundEntry)
+		_ = txn.SetEntry(audioEntry)
+
+		return nil
+	})
 
 	return
 }
