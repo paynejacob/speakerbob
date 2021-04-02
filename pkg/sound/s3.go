@@ -94,8 +94,4 @@ func soundFromTagMap(sound *Sound, tagMap map[string]string) {
 	if val, ok := tagMap["speakerbob.com/Sound/Duration"]; ok {
 		sound.Duration, _ = time.ParseDuration(val)
 	}
-
-	if val, ok := tagMap["speakerbob.com/Sound/NSFW"]; ok {
-		sound.NSFW = val == "true"
-	}
 }

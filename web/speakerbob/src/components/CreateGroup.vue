@@ -61,8 +61,6 @@ export default class CreateGroup extends Vue {
     (v: any) => !!v || 'Name is required'
   ];
 
-  public nsfw = false;
-
   private async save () {
     const form: any = this.$refs.form
 

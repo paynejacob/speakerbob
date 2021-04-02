@@ -316,7 +316,6 @@ func (p *Provider) CreateGroup(name string, sounds []Sound) (Group, error) {
 	group.SoundIds = make([]string, len(sounds))
 
 	for i := range sounds {
-		group.NSFW = sounds[i].NSFW || group.NSFW
 		group.Duration += sounds[i].Duration
 
 		group.SoundIds[i] = sounds[i].Id

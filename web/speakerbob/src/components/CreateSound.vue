@@ -10,9 +10,6 @@
         <v-col>
           <v-file-input v-model="file" :rules="fileRules" :error="!!fileErrors.length" :error-messages="fileErrors" label="sound file" />
         </v-col>
-        <v-col md="2">
-          <v-switch v-model="nsfw" label="NSFW" />
-        </v-col>
       </v-row>
       <v-row>
         <v-btn block color="primary" @click="saveSound" :disabled="soundId === ''">Save</v-btn>
@@ -39,8 +36,6 @@ export default class CreateSound extends Vue {
   private nameRules: any[] = [
     (v: any) => !!v || 'Name is required'
   ];
-
-  public nsfw = false;
 
   private soundId = '';
 
@@ -81,8 +76,7 @@ export default class CreateSound extends Vue {
       url: `/sound/sound/${this.soundId}/`,
       data: {
         id: this.soundId,
-        name: this.name,
-        nsfw: this.nsfw
+        name: this.name
       }
     })
 
