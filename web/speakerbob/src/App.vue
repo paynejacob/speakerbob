@@ -90,12 +90,10 @@ export default class App extends Vue {
   private userCount = 0;
   private connection!: WebSocket;
 
-  private audio!: HTMLAudioElement;
   private showOverlay = false;
 
   mounted () {
     this.connect()
-    this.audio = new Audio()
   }
 
   private connect () {
@@ -127,10 +125,8 @@ export default class App extends Vue {
         this.userCount = message.payload.count
         break
       case 'play':
-        this.audio.src =
-          `/sound/sound/${message.payload.sound.id}/download/`
         try {
-          await this.audio.play()
+          await this.$audioPlayer.EnqueueSound(message.payload.sound)
         } catch (e) {
           if (e.name === 'NotAllowedError') {
             this.showOverlay = true
@@ -158,8 +154,7 @@ export default class App extends Vue {
   }
 
   private dismissOverlay () {
-    this.audio.src = ''
-    this.audio.play()
+    this.$audioPlayer.ForceEnableSound()
 
     this.showOverlay = false
   }
