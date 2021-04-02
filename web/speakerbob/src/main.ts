@@ -5,10 +5,12 @@ import Player from './plugins/player'
 import '@babel/polyfill'
 import 'roboto-fontface/css/roboto/roboto-fontface.css'
 import '@fortawesome/fontawesome-free/css/all.css'
+import WSConnection from '@/plugins/websocket'
 
 Vue.config.productionTip = false
 
 Vue.use(Player)
+Vue.use(WSConnection)
 
 new Vue({
   vuetify,

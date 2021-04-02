@@ -5,8 +5,8 @@
         <v-app-bar-title>Speakerbob</v-app-bar-title>
       </div>
       <v-spacer/>
-      <ConnectionStatus :connected="connected" />
-      <UserCount :user-count="userCount" />
+      <ConnectionStatus />
+      <UserCount />
     </v-app-bar>
     <v-main>
       <v-card id="create" height="100%">
@@ -79,6 +79,7 @@ import UserCount from '@/components/UserCount.vue'
 import ConnectionStatus from '@/components/ConnectionStatus.vue'
 import CreateGroup from '@/components/CreateGroup.vue'
 import Say from '@/components/Say.vue'
+import { Message } from '@/plugins/websocket'
 
 @Component({ components: { CreateGroup, ConnectionStatus, UserCount, PlaySearch, CreateSound, Say } })
 export default class App extends Vue {
@@ -86,58 +87,34 @@ export default class App extends Vue {
   private createSoundModal = false;
   private createGroupModal = false;
   private sayModal = false;
-  private connected = false;
-  private userCount = 0;
-  private connection!: WebSocket;
 
   private showOverlay = false;
 
-  mounted () {
-    this.connect()
+  $refs!: {
+    createSoundForm: HTMLFormElement;
+    playSearch: PlaySearch;
   }
 
-  private connect () {
-    const proto = (window.location.protocol === 'https:') ? 'wss' : 'ws'
-
-    this.connection = new WebSocket(`${proto}://${window.location.hostname}:${window.location.port}/ws/`)
-
-    this.connection.onopen = this.connectionOpen
-    this.connection.onclose = this.connectionClose
-
-    this.connection.onmessage = this.readMessage
+  public created () {
+    this.$ws.RegisterMessageHook('play', this.onPlayMessage)
   }
 
-  private connectionOpen () {
-    this.connected = true
+  public destroyed () {
+    this.$ws.DeRegisterMessageHook('play', this.onPlayMessage)
   }
 
-  private connectionClose () {
-    this.connected = false
-
-    setTimeout(this.connect, 500)
-  }
-
-  private async readMessage (event: MessageEvent) {
-    const message = JSON.parse(event.data)
-
-    switch (message.type) {
-      case 'connection_count':
-        this.userCount = message.payload.count
-        break
-      case 'play':
-        try {
-          await this.$audioPlayer.EnqueueSound(message.payload.sound)
-        } catch (e) {
-          if (e.name === 'NotAllowedError') {
-            this.showOverlay = true
-          }
-        }
+  private async onPlayMessage (message: Message) {
+    try {
+      await this.$audioPlayer.EnqueueSound(message.payload.sound)
+    } catch (e) {
+      if (e.name === 'NotAllowedError') {
+        this.showOverlay = true
+      }
     }
   }
 
   private resetCreateSoundForm () {
-    const createSoundForm: any = this.$refs.createSoundForm
-    createSoundForm.reset()
+    this.$refs.createSoundForm.reset()
   }
 
   @Watch('createSoundModal')
@@ -146,9 +123,7 @@ export default class App extends Vue {
       return
     }
 
-    const playSearch: any = this.$refs.playSearch
-
-    playSearch.refresh()
+    this.$refs.playSearch.refresh()
 
     this.resetCreateSoundForm()
   }

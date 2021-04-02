@@ -5,10 +5,23 @@
 </template>
 
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
+import Vue from 'vue'
+import { Component, Prop } from 'vue-property-decorator'
 
 @Component
 export default class ConnectionStatus extends Vue {
-  @Prop(Boolean) readonly connected!: boolean;
+  private connected = false;
+
+  public created () {
+    this.$ws.RegisterConnectionHook(this.setConnected)
+  }
+
+  public destroyed () {
+    this.$ws.DeRegisterConnectionHook(this.setConnected)
+  }
+
+  private async setConnected (connected: boolean) {
+    this.connected = connected
+  }
 }
 </script>
