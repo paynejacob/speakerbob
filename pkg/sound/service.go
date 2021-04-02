@@ -5,20 +5,25 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"github.com/gorilla/mux"
 	"github.com/paynejacob/speakerbob/pkg/graph"
+	"github.com/paynejacob/speakerbob/pkg/websocket"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 )
 
+const soundCreateMessageType websocket.MessageType = "sound.sound.create"
+const groupCreateMessageType websocket.MessageType = "sound.group.create"
+
 type Service struct {
-	soundProvider *Provider
+	soundProvider    *Provider
+	websocketService *websocket.Service
 }
 
 const cleanupInterval = 6 * time.Hour
 const soundCreateGracePeriod = 10 * time.Minute
 
-func NewService(soundStore *Provider) *Service {
-	return &Service{soundProvider: soundStore}
+func NewService(soundStore *Provider, websocketService *websocket.Service) *Service {
+	return &Service{soundProvider: soundStore, websocketService: websocketService}
 }
 
 func (s *Service) RegisterRoutes(parent *mux.Router, prefix string) {
@@ -171,6 +176,8 @@ func (s *Service) updateSound(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	s.websocketService.BroadcastMessage(soundCreateMessageType, currentSound)
 }
 
 func (s *Service) deleteSound(w http.ResponseWriter, r *http.Request) {
@@ -252,6 +259,8 @@ func (s *Service) createGroup(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	s.websocketService.BroadcastMessage(groupCreateMessageType, group)
 }
 
 func (s *Service) deleteGroup(w http.ResponseWriter, r *http.Request) {

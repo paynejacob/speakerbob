@@ -67,7 +67,7 @@ func Server(*cobra.Command, []string) {
 	playService := play.NewService(soundProvider, websocketService)
 	playService.RegisterRoutes(r, "/play")
 
-	soundService := sound.NewService(soundProvider)
+	soundService := sound.NewService(soundProvider, websocketService)
 	soundService.RegisterRoutes(r, "/sound")
 
 	staticService := static.NewService()

@@ -39,6 +39,16 @@ export default class PlaySearch extends Vue {
   private groups: Group[] = [];
   private timerId = 0
 
+  created () {
+    this.$ws.RegisterMessageHook('sound.sound.create', this.refresh)
+    this.$ws.RegisterMessageHook('sound.group.create', this.refresh)
+  }
+
+  destroyed () {
+    this.$ws.DeRegisterConnectionHook('sound.sound.create', this.refresh)
+    this.$ws.DeRegisterConnectionHook('sound.group.create', this.refresh)
+  }
+
   mounted () {
     this.search('')
   }
