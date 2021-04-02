@@ -45,8 +45,8 @@ export default class PlaySearch extends Vue {
   }
 
   destroyed () {
-    this.$ws.DeRegisterConnectionHook('sound.sound.create', this.refresh)
-    this.$ws.DeRegisterConnectionHook('sound.group.create', this.refresh)
+    this.$ws.DeRegisterMessageHook('sound.sound.create', this.refresh)
+    this.$ws.DeRegisterMessageHook('sound.group.create', this.refresh)
   }
 
   mounted () {

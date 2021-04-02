@@ -14,7 +14,6 @@ type Sound struct {
 
 	Name     string        `json:"name"`
 	Duration time.Duration `json:"duration"`
-	NSFW     bool          `json:"nsfw"`
 	Hidden   bool          `json:"-"`
 }
 
