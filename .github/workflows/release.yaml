@@ -20,9 +20,7 @@ jobs:
       - run: sudo apt update && sudo apt install gcc-mingw-w64-x86-64 -y
       - run: scripts/build
       - run: docker build --build-arg VERSION=${GITHUB_REF##*/} -t $GITHUB_REPOSITORY:${GITHUB_REF##*/} .
-      - run: docker tag $GITHUB_REPOSITORY:${GITHUB_REF##*/} $GITHUB_REPOSITORY:latest
       - run: docker push $GITHUB_REPOSITORY:${GITHUB_REF##*/}
-      - run: docker push $GITHUB_REPOSITORY:latest
       - uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
