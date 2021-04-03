@@ -1,5 +1,5 @@
 <template>
-  <v-form ref="form" v-model="valid">
+  <v-form ref="form" v-model="valid" @submit="save" onSubmit="return false;">
     <v-container fluid>
       <v-row>
         <v-col>
