@@ -1,5 +1,5 @@
 <template>
-  <v-form ref="form" v-model="valid">
+  <v-form ref="form" v-model="valid" @submit="saveSound" onSubmit="return false;">
     <v-container>
       <v-row>
         <v-col>
