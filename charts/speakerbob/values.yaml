@@ -64,6 +64,7 @@ affinity: {}
 
 durationLimit: 10s
 
+migrateFromS3: false
 secretName: speakerbob-credentials
 
 persistence:

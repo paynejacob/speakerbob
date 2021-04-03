@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ include "speakerbob.fullname" . }}
   labels:
@@ -24,6 +24,7 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.migrateFromS3 }}
       initContainers:
         - name: s3import
           securityContext:
@@ -50,6 +51,7 @@ spec:
           volumeMounts:
             - mountPath: /data
               name: data
+      {{- end }}
       containers:
         - name: speakerbob
           securityContext:
