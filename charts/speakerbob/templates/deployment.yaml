@@ -6,6 +6,7 @@ metadata:
     {{- include "speakerbob.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  serviceName: {{ include "speakerbob.fullname" . }}
   selector:
     matchLabels:
       {{- include "speakerbob.selectorLabels" . | nindent 6 }}
