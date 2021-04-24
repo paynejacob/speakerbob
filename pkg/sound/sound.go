@@ -14,14 +14,12 @@ type Sound struct {
 
 	Name     string        `json:"name"`
 	Duration time.Duration `json:"duration"`
-	Hidden   bool          `json:"-"`
 }
 
 func NewSound() Sound {
 	return Sound{
 		Id:        strings.Replace(uuid.New().String(), "-", "", 4),
 		CreatedAt: time.Now(),
-		Hidden:    true,
 	}
 }
 
