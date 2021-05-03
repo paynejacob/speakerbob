@@ -278,7 +278,7 @@ func (p *Provider) HydrateSearch() error {
 					return err
 				}
 
-				if sound.Hidden {
+				if sound.Name == "" || sound.Name == "-" {
 					continue
 				}
 
@@ -414,7 +414,6 @@ func (p *Provider) CreateTextToSpeechSound(text string) (sound Sound, err error)
 
 	// create a new sound
 	sound = NewSound()
-	sound.Hidden = true
 	sound.Name = "-"
 
 	// generate audio
