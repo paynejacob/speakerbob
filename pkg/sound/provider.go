@@ -3,9 +3,11 @@ package sound
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"github.com/dgraph-io/badger/v3"
 	"github.com/paynejacob/speakerbob/pkg/graph"
 	"io"
+	"sort"
 	"sync"
 	"time"
 )
@@ -34,9 +36,14 @@ func NewProvider(db *badger.DB, maxSoundDuration time.Duration) *Provider {
 }
 
 func (p *Provider) Search(tokens [][]byte) (sounds []Sound, groups []Group, err error) {
+	type Pair struct {
+		Key   string
+		Value int
+	}
+
 	var sound Sound
 	var group Group
-	keys := make(map[string]bool, 0)
+	keys := make(map[string]int, 0)
 	sounds = make([]Sound, 0)
 	groups = make([]Group, 0)
 
@@ -48,13 +55,28 @@ func (p *Provider) Search(tokens [][]byte) (sounds []Sound, groups []Group, err 
 
 	for _, token := range tokens {
 		for _, b := range p.searchIndex.Search(token) {
-			keys[string(b)] = true
+			if n, exists := keys[string(b)]; exists {
+				keys[string(b)] = n + 1
+			} else {
+				keys[string(b)] = 1
+			}
 		}
 	}
 
 	p.mu.RUnlock()
 
-	for key := range keys {
+	var pairs = make([]Pair, len(keys))
+	for k, v := range keys {
+		pairs = append(pairs, Pair{k, v})
+	}
+
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].Value > pairs[j].Value
+	})
+
+	for i := 0; i < len(keys); i++ {
+		key := pairs[i].Key
+
 		if key[0] == SoundKeyPrefix {
 			sound.Id = key[1:]
 			if err = p.GetSound(&sound); err != nil {
@@ -68,6 +90,10 @@ func (p *Provider) Search(tokens [][]byte) (sounds []Sound, groups []Group, err 
 			}
 			groups = append(groups, group)
 		}
+	}
+
+	for i := 0; i < len(sounds); i++ {
+		println(fmt.Sprintf("%s: %s", sounds[i].Id, sounds[i].Name))
 	}
 
 	return
