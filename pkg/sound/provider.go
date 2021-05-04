@@ -3,7 +3,6 @@ package sound
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
 	"github.com/dgraph-io/badger/v3"
 	"github.com/paynejacob/speakerbob/pkg/graph"
 	"io"
@@ -90,10 +89,6 @@ func (p *Provider) Search(tokens [][]byte) (sounds []Sound, groups []Group, err 
 			}
 			groups = append(groups, group)
 		}
-	}
-
-	for i := 0; i < len(sounds); i++ {
-		println(fmt.Sprintf("%s: %s", sounds[i].Id, sounds[i].Name))
 	}
 
 	return
