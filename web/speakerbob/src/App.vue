@@ -72,14 +72,15 @@
 
 <script lang="ts">
 import Vue from 'vue'
-import PlaySearch from '@/components/PlaySearch.vue'
-import CreateSound from '@/components/CreateSound.vue'
 import { Component, Watch } from 'vue-property-decorator'
-import UserCount from '@/components/UserCount.vue'
-import ConnectionStatus from '@/components/ConnectionStatus.vue'
-import CreateGroup from '@/components/CreateGroup.vue'
-import Say from '@/components/Say.vue'
 import { Message } from '@/plugins/websocket'
+import PlaySearch from '@/components/PlaySearch.vue'
+
+const ConnectionStatus = () => import('@/components/ConnectionStatus.vue')
+const UserCount = () => import('@/components/UserCount.vue')
+const CreateSound = () => import('@/components/CreateSound.vue')
+const CreateGroup = () => import('@/components/CreateGroup.vue')
+const Say = () => import('@/components/Say.vue')
 
 @Component({ components: { CreateGroup, ConnectionStatus, UserCount, PlaySearch, CreateSound, Say } })
 export default class App extends Vue {

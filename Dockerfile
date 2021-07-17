@@ -1,9 +1,10 @@
 FROM node:alpine as uibuild
 RUN apk add --no-cache yarn
 WORKDIR /ui
+COPY web/speakerbob/package.json /ui/package.json
+RUN yarn install --no-lockfile --silent --cache-folder .yc
 COPY web/speakerbob /ui
-RUN yarn install --no-lockfile --silent --cache-folder .yc \
-    && yarn build
+RUN yarn build
 
 FROM golang:1.16-alpine3.13 as gobuild
 ARG VERSION=dev
