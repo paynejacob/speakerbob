@@ -13,7 +13,7 @@
     "@vue/cli": "^4.5.11",
     "babel-loader": "^8.2.2",
     "core-js": "^3.6.5",
-    "lodash": "^4.17.20",
+    "lodash": "^4.17.21",
     "roboto-fontface": "*",
     "vue": "^2.6.11",
     "vue-class-component": "^7.2.3",
