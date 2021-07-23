@@ -41,7 +41,8 @@
     "socket.io": "^3.1.1",
     "typescript": "~3.9.3",
     "vue-cli-plugin-vuetify": "~2.1.0",
-    "vue-template-compiler": "^2.6.11"
+    "vue-template-compiler": "^2.6.11",
+    "workbox-webpack-plugin": "^6.1.5"
   },
   "eslintConfig": {
     "root": true,
@@ -56,6 +57,9 @@
     "parserOptions": {
       "ecmaVersion": 2020
     },
+    "ignorePatterns": [
+      "vue.config.js"
+    ],
     "rules": {
       "@typescript-eslint/no-explicit-any": 0,
       "no-case-declarations": 0,

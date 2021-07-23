@@ -75,9 +75,8 @@ import Vue from 'vue'
 import { Component, Watch } from 'vue-property-decorator'
 import { Message } from '@/plugins/websocket'
 import PlaySearch from '@/components/PlaySearch.vue'
-
-const ConnectionStatus = () => import('@/components/ConnectionStatus.vue')
-const UserCount = () => import('@/components/UserCount.vue')
+import ConnectionStatus from '@/components/ConnectionStatus.vue'
+import UserCount from '@/components/UserCount.vue'
 const CreateSound = () => import('@/components/CreateSound.vue')
 const CreateGroup = () => import('@/components/CreateGroup.vue')
 const Say = () => import('@/components/Say.vue')
