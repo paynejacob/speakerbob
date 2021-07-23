@@ -75,8 +75,6 @@ export default class WSConnection {
       await this.connectionHooks[i](false)
     }
 
-    console.log(this)
-
     setTimeout(() => this.connect(), Math.random() * 1000)
   }
 
