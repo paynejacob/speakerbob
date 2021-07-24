@@ -40,7 +40,10 @@ export default class Say extends Vue {
     await axios.request({
       method: 'PUT',
       url: '/play/say/',
-      data: `"${this.message}"`
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      data: JSON.stringify(this.message)
     })
 
     this.loading = false
