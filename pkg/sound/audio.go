@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var specialCharacterRgexp = regexp.MustCompile(`[^a-zA-Z0-9\\s.? ]+`)
+var specialCharacterRegexp = regexp.MustCompile(`[^a-zA-Z0-9\\s.? ]+`)
 
 func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w io.Writer) error {
 	cmd := exec.Command(
@@ -57,7 +57,7 @@ func tts(text string, w io.Writer) error {
 	cmd := exec.Command(
 		"flite",
 		"-voice", "slt",
-		"-t", specialCharacterRgexp.ReplaceAllString(text, ""),
+		"-t", specialCharacterRegexp.ReplaceAllString(text, ""),
 		"-o", "/dev/stdout")
 	cmd.Stdout = w
 

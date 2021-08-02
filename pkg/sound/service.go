@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/dgraph-io/badger/v3"
 	"github.com/gorilla/mux"
-	"github.com/paynejacob/speakerbob/pkg/graph"
 	"github.com/paynejacob/speakerbob/pkg/websocket"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -15,15 +14,22 @@ const soundCreateMessageType websocket.MessageType = "sound.sound.create"
 const groupCreateMessageType websocket.MessageType = "sound.group.create"
 
 type Service struct {
-	soundProvider    *Provider
+	soundProvider    *SoundProvider
+	groupProvider    *GroupProvider
 	websocketService *websocket.Service
+	maxSoundDuration time.Duration
 }
 
-const cleanupInterval = 6 * time.Hour
-const soundCreateGracePeriod = 10 * time.Minute
+const cleanupInterval = 4 * time.Hour
+const hiddenSoundTTL = 24 * time.Hour
 
-func NewService(soundStore *Provider, websocketService *websocket.Service) *Service {
-	return &Service{soundProvider: soundStore, websocketService: websocketService}
+func NewService(SoundProvider *SoundProvider, groupProvider *GroupProvider, websocketService *websocket.Service, maxSoundDuration time.Duration) *Service {
+	return &Service{
+		soundProvider:    SoundProvider,
+		groupProvider:    groupProvider,
+		websocketService: websocketService,
+		maxSoundDuration: maxSoundDuration,
+	}
 }
 
 func (s *Service) RegisterRoutes(parent *mux.Router, prefix string) {
@@ -43,36 +49,21 @@ func (s *Service) RegisterRoutes(parent *mux.Router, prefix string) {
 }
 
 func (s *Service) Run() {
-	var sounds []Sound
-	var sound Sound
 	var err error
 	var now time.Time
 
 	logrus.Info("starting sound service worker")
-
-	if err = s.soundProvider.HydrateSearch(); err != nil {
-		logrus.Panicf("Error hydrating search index! %d", err)
-	}
-
 	for range time.Tick(cleanupInterval) {
-		logrus.Debug("starting database garbage collection")
-		if err = s.soundProvider.db.RunValueLogGC(0.5); badger.ErrNoRewrite != err {
-			logrus.Errorf("error durring database garbage collection: %d", err)
-		}
-
-		logrus.Debug("starting uninitialized sound cleanup")
+		logrus.Debug("starting hidden sound cleanup")
 		now = time.Now()
-		sounds, err = s.soundProvider.AllSounds()
-		if err != nil {
-			logrus.Errorf("error listing uninitalized sounds: %d", err)
-		}
-		for i := range sounds {
-			if sounds[i].Name == "" && now.Sub(sounds[i].CreatedAt) > soundCreateGracePeriod {
-				logrus.Infof("deleting \"%s\" expired uninitialized sound", sounds[i].Id)
 
-				err = s.soundProvider.DeleteSound(sound)
+		for _, sound := range s.soundProvider.List() {
+			if sound.Hidden && now.Sub(sound.CreatedAt) > hiddenSoundTTL {
+				logrus.Infof("deleting \"%s\" expired hidden sounds", sound.Id)
+
+				err = DeleteSound(s.groupProvider, s.soundProvider, sound)
 				if err != nil {
-					logrus.Errorf("error deleting uninitalized sound: %d", err)
+					logrus.Errorf("error deleting hidden sound: %d", err)
 				}
 			}
 		}
@@ -81,12 +72,13 @@ func (s *Service) Run() {
 
 func (s *Service) list(w http.ResponseWriter, r *http.Request) {
 	var err error
-	var sounds []Sound
-	var groups []Group
+	var sounds []*Sound
+	var groups []*Group
 
 	q := r.URL.Query().Get("q")
 
-	sounds, groups, err = s.soundProvider.Search(graph.Tokenize(q))
+	sounds = s.soundProvider.Search(q)
+	groups = s.groupProvider.Search(q)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -117,7 +109,7 @@ func (s *Service) createSound(w http.ResponseWriter, r *http.Request) {
 			return // upload aborted
 		}
 
-		sound, err = s.soundProvider.CreateSound(fileHeader.Filename, data)
+		sound, err = s.soundProvider.NewSound(fileHeader.Filename, data, s.maxSoundDuration)
 		if err != nil {
 			logrus.Errorf("failed to create sound: %s  -- %s", fileHeader.Filename, err.Error())
 			w.WriteHeader(http.StatusInternalServerError) // TODO: determine file is bad or upload is bad
@@ -135,7 +127,7 @@ func (s *Service) createSound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) updateSound(w http.ResponseWriter, r *http.Request) {
-	var currentSound Sound
+	var currentSound *Sound
 	var sound Sound
 	var err error
 
@@ -155,8 +147,7 @@ func (s *Service) updateSound(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// load existing values
-	currentSound.Id = soundId
-	err = s.soundProvider.GetSound(&currentSound)
+	currentSound = s.soundProvider.Get(soundId)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -169,7 +160,8 @@ func (s *Service) updateSound(w http.ResponseWriter, r *http.Request) {
 
 	// write user changes
 	currentSound.Name = sound.Name
-	err = s.soundProvider.SaveSound(currentSound)
+	currentSound.Hidden = false
+	err = s.soundProvider.Save(currentSound)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -179,11 +171,11 @@ func (s *Service) updateSound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) deleteSound(w http.ResponseWriter, r *http.Request) {
-	var sound Sound
+	var sound *Sound
 
 	sound.Id = mux.Vars(r)["soundId"]
 
-	err := s.soundProvider.DeleteSound(sound)
+	err := DeleteSound(s.groupProvider, s.soundProvider, sound)
 
 	if err != nil && err != mux.ErrNotFound {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -201,7 +193,7 @@ func (s *Service) downloadSound(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "audio/mp3")
 	w.Header().Set("Cache-Control", "max-age=2592000s")
 
-	err = s.soundProvider.GetSoundAudio(sound, w)
+	err = s.soundProvider.GetAudio(&sound, w)
 
 	if err == badger.ErrKeyNotFound {
 		w.WriteHeader(http.StatusNotFound)
@@ -238,27 +230,28 @@ func (s *Service) createGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// validate sound ids
-	sounds := make([]Sound, len(userGroup.SoundIds))
-	for i := range sounds {
-		sounds[i].Id = userGroup.SoundIds[i]
-		err = s.soundProvider.GetSound(&sounds[i])
-		if err != nil {
+	for i := range group.SoundIds {
+		if s.soundProvider.Get(group.SoundIds[i]).Id != "" {
 			w.WriteHeader(http.StatusNotAcceptable)
 			return
 		}
 	}
 
+	group = NewGroup()
+	group.Name = userGroup.Name
+	group.SoundIds = userGroup.SoundIds
+
 	// create group
-	group, err = s.soundProvider.CreateGroup(userGroup.Name, sounds)
+	err = s.groupProvider.Save(&group)
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(group)
+	err = json.NewEncoder(w).Encode(&group)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	s.websocketService.BroadcastMessage(groupCreateMessageType, group)
+	s.websocketService.BroadcastMessage(groupCreateMessageType, &group)
 }
 
 func (s *Service) deleteGroup(w http.ResponseWriter, r *http.Request) {
@@ -266,7 +259,7 @@ func (s *Service) deleteGroup(w http.ResponseWriter, r *http.Request) {
 
 	group.Id = mux.Vars(r)["groupId"]
 
-	err := s.soundProvider.DeleteGroup(group)
+	err := s.groupProvider.Delete(&group)
 
 	if err != nil && err != mux.ErrNotFound {
 		w.WriteHeader(http.StatusInternalServerError)

@@ -21,6 +21,13 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   exit 1
 fi
 
+go generate ./pkg/...
+
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo "go generate changes not commited!"
+  exit 1
+fi
+
 pushd web/speakerbob
   yarn
   export PATH="$(yarn bin):$PATH"

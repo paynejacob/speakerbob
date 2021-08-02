@@ -7,17 +7,20 @@ import (
 	"github.com/paynejacob/speakerbob/pkg/websocket"
 	"github.com/sirupsen/logrus"
 	"net/http"
+	"time"
 )
 
 type Service struct {
 	playQueue *queue
 
-	soundProvider    *sound.Provider
+	soundProvider    *sound.SoundProvider
+	groupProvider    *sound.GroupProvider
 	websocketService *websocket.Service
+	maxSoundDuration time.Duration
 }
 
-func NewService(soundStore *sound.Provider, websocketService *websocket.Service) *Service {
-	return &Service{playQueue: newQueue(), websocketService: websocketService, soundProvider: soundStore}
+func NewService(soundProvider *sound.SoundProvider, groupProvider *sound.GroupProvider, websocketService *websocket.Service, maxSoundDuration time.Duration) *Service {
+	return &Service{playQueue: newQueue(), websocketService: websocketService, soundProvider: soundProvider, groupProvider: groupProvider, maxSoundDuration: maxSoundDuration}
 }
 
 func (s *Service) RegisterRoutes(parent *mux.Router, prefix string) {
@@ -35,14 +38,9 @@ func (s *Service) Run() {
 }
 
 func (s *Service) playSound(w http.ResponseWriter, r *http.Request) {
-	var _sound sound.Sound
-	var err error
-
-	_sound.Id = mux.Vars(r)["soundId"]
-
-	err = s.soundProvider.GetSound(&_sound)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	_sound := *s.soundProvider.Get(mux.Vars(r)["soundId"])
+	if _sound.Id == "" {
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -52,25 +50,15 @@ func (s *Service) playSound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) playGroup(w http.ResponseWriter, r *http.Request) {
-	var group sound.Group
-	var err error
-
-	group.Id = mux.Vars(r)["groupId"]
-
-	err = s.soundProvider.GetGroup(&group)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	group := s.groupProvider.Get(mux.Vars(r)["groupId"])
+	if group.Id == "" {
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
 	sounds := make([]sound.Sound, len(group.SoundIds))
 	for i := range group.SoundIds {
-		sounds[i].Id = group.SoundIds[i]
-		err = s.soundProvider.GetSound(&sounds[i])
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		sounds[i] = *s.soundProvider.Get(group.SoundIds[i])
 	}
 
 	s.playQueue.EnqueueSounds(sounds...)
@@ -79,27 +67,24 @@ func (s *Service) playGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) say(w http.ResponseWriter, r *http.Request) {
-	var err error
 	var text string
-	var _sound sound.Sound
 
 	// parse user request
-	err = json.NewDecoder(r.Body).Decode(&text)
-	if err != nil {
+	if json.NewDecoder(r.Body).Decode(&text) != nil {
 		w.WriteHeader(http.StatusNotAcceptable)
 		return
 	}
 
-	// generate sound
-	_sound, err = s.soundProvider.CreateTextToSpeechSound(text)
+	// codegen sound
+	_sound, err := s.soundProvider.NewTTSSound(text, s.maxSoundDuration)
 	if err != nil {
-		logrus.Info(err)
+		logrus.Errorf("failed to codegen tts sound: %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	// enqueue playback
-	s.playQueue.EnqueueSounds(_sound)
+	s.playQueue.EnqueueSounds(*_sound)
 
 	w.WriteHeader(http.StatusAccepted)
 }
