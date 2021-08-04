@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+IS_PRERELEASE=false
+IMAGE_NAME=ghcr.io/$GITHUB_REPOSITORY
+
+if git describe --exact-match --tags > /dev/null 2>&1 ; then
+    VERSION=$(git describe --exact-match --tags)
+    IMAGE_TAG=$(git describe --exact-match --tags)
+else
+    VERSION=dev-$(git log --oneline -n 1 | cut -d" " -f1)
+    IMAGE_TAG=$(git branch --show-current | cut -d"/" -f2)-head
+fi
+
+if [[ "$VERSION" =~ -rc\d+$ ]]; then
+  IS_PRERELEASE=true
+fi
+
+export IS_PRERELEASE=$IS_PRERELEASE
+export IMAGE_NAME=$IMAGE_NAME
+export VERSION=$VERSION
+export IMAGE_TAG=$IMAGE_TAG
+
+echo "IS_PRERELEASE: $IS_PRERELEASE"
+echo "IMAGE_NAME: $IMAGE_NAME"
+echo "VERSION: $VERSION"
+echo "IMAGE_TAG: $IMAGE_TAG"

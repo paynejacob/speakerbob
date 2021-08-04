@@ -3,13 +3,41 @@ name: validate
 on: pull_request
 
 jobs:
-  validate:
-    name: validate
+  golang:
+    name: golang
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go_version: "1.16"
+          go_version: "1.16.6"
       - uses: actions/setup-node@v2
-      - run: scripts/validate
+      - run: scripts/validate/golang
+  generate:
+    name: generate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go_version: "1.16.6"
+      - run: scripts/validate/generate
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+      - run: scripts/validate/web
+  helm:
+    name: helm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: scripts/validate/helm
+  docker:
+    name: docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: scripts/validate/docker

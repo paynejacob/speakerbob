@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+go mod tidy
+
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  git --no-pager diff
+  exit 1
+fi
+
+for d in pkg/* ; do
+  pushd "$d" || exit
+    go fmt .
+  popd || exit
+done
+
+go fmt main.go
+go fmt cmd
+
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  git --no-pager diff
+  exit 1
+fi

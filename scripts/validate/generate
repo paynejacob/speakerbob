@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+go generate ./pkg/...
+
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo "go generate changes not commited!"
+  exit 1
+fi

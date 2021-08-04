@@ -6,7 +6,7 @@ RUN yarn install --no-lockfile --silent --cache-folder .yc
 COPY web/speakerbob /ui
 RUN yarn build
 
-FROM golang:1.16-alpine3.13 as gobuild
+FROM golang:1.16.6-alpine3.13 as gobuild
 ARG VERSION=dev
 RUN apk add --no-cache curl gcc musl-dev
 WORKDIR /speakerbob
