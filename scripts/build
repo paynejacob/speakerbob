@@ -1,6 +1,6 @@
-set -x
+#!/usr/bin/env bash
 
-VERSION=$(git tag | grep ^v | sort -V | tail -n 1)
+set -x
 
 pushd web/speakerbob
   yarn install --no-lockfile --silent --cache-folder .yc
@@ -9,8 +9,6 @@ pushd web/speakerbob
 popd
 
 mkdir -p dist
-
-go generate ./...
 
 CC=arm-linux-gnueabi-gcc GO_ENABLED=1 GOOS=linux GOARCH=arm go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/cmd.version=$VERSION" -o dist/speakerbob-$VERSION-arm64 main.go
 CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/cmd.version=$VERSION" -o dist/speakerbob-$VERSION-amd64 main.go
