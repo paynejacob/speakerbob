@@ -3,18 +3,17 @@ const { GenerateSW } = require('workbox-webpack-plugin')
 module.exports = {
   lintOnSave: false,
   productionSourceMap: false,
-  publicPath: process.env.NODE_ENV === 'development' ? '/vuejs-pwa/' : '',
   configureWebpack: {
     plugins: [new GenerateSW()]
   },
   devServer: {
     proxy: {
       '/ws/': {
-        target: 'http://localhost:8080',
+        target: 'http://127.0.0.1:8080',
         ws: true,
         changeOrigin: false,
         onProxyReq: function (request) {
-          request.setHeader('origin', 'http://localhost:8080')
+          request.setHeader('origin', 'http://127.0.0.1:8080')
         }
       },
       '/sound/': {

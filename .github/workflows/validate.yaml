@@ -9,5 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
+        with:
+          go_version: "1.16"
       - uses: actions/setup-node@v2
       - run: scripts/validate

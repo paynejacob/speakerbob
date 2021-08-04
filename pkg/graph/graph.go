@@ -10,24 +10,9 @@ func NewGraph() *Graph {
 	}
 }
 
-func (g *Graph) Write(token []byte, value []byte) {
-	var root *Node
-	var char byte
-
-	root = g.root
-	root.AddValue(value)
-	for i := range token {
-		char = token[i]
-		// ensure this Node exists
-		if !root.HasChild(char) {
-			root.AddChild(newNode(char))
-		}
-
-		// move down the tree
-		root = root.children[char]
-
-		// write value to Node
-		root.AddValue(value)
+func (g *Graph) Write(tokens [][]byte, value []byte) {
+	for i := 0; i < len(tokens); i++ {
+		g.writeToken(tokens[i], value)
 	}
 }
 
@@ -79,5 +64,26 @@ func (g *Graph) Delete(value []byte) {
 				root.parent.RemoveChild(root.char)
 			}
 		}
+	}
+}
+
+func (g *Graph) writeToken(token []byte, value []byte) {
+	var root *Node
+	var char byte
+
+	root = g.root
+	root.AddValue(value)
+	for i := range token {
+		char = token[i]
+		// ensure this Node exists
+		if !root.HasChild(char) {
+			root.AddChild(newNode(char))
+		}
+
+		// move down the tree
+		root = root.children[char]
+
+		// write value to Node
+		root.AddValue(value)
 	}
 }

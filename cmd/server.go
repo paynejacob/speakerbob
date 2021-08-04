@@ -7,6 +7,7 @@ import (
 	"github.com/paynejacob/speakerbob/pkg/play"
 	"github.com/paynejacob/speakerbob/pkg/sound"
 	"github.com/paynejacob/speakerbob/pkg/static"
+	"github.com/paynejacob/speakerbob/pkg/store/badgerdb"
 	"github.com/paynejacob/speakerbob/pkg/websocket"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -59,15 +60,27 @@ func Server(*cobra.Command, []string) {
 		logrus.Fatal(err)
 	}
 
-	soundProvider := sound.NewProvider(db, durationLimit)
+	_store := badgerdb.Store{
+		db,
+	}
+
+	soundProvider := sound.NewSoundProvider(_store)
+	if err = soundProvider.Initialize(); err != nil {
+		logrus.Fatal(err)
+	}
+
+	groupProvider := sound.NewGroupProvider(_store)
+	if err = groupProvider.Initialize(); err != nil {
+		logrus.Fatal(err)
+	}
 
 	websocketService := websocket.NewService()
 	websocketService.RegisterRoutes(r, "/ws")
 
-	playService := play.NewService(soundProvider, websocketService)
+	playService := play.NewService(soundProvider, groupProvider, websocketService, durationLimit)
 	playService.RegisterRoutes(r, "/play")
 
-	soundService := sound.NewService(soundProvider, websocketService)
+	soundService := sound.NewService(soundProvider, groupProvider, websocketService, durationLimit)
 	soundService.RegisterRoutes(r, "/sound")
 
 	staticService := static.NewService()

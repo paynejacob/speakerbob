@@ -16,6 +16,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - uses: actions/setup-go@v2
+        with:
+          go_version: "1.16"
       - uses: actions/setup-node@v2
       - run: sudo apt update && sudo apt install gcc-mingw-w64-x86-64 -y
       - run: scripts/build
