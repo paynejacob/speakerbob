@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/dgraph-io/badger/v3"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/paynejacob/speakerbob/pkg/play"
 	"github.com/paynejacob/speakerbob/pkg/sound"
@@ -90,7 +91,7 @@ func Server(*cobra.Command, []string) {
 	go playService.Run()
 	go soundService.Run()
 
-	http.Handle("/", r)
+	http.Handle("/", handlers.RecoveryHandler()(handlers.CompressHandler(r)))
 
 	logrus.Infof("Server started listening on http://%s:%d", host, port)
 

@@ -1,0 +1,23 @@
+{
+  "name": "Speakerbob",
+  "short_name": "sb",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#da532c",
+  "background_color": "#da532c",
+  "description": "A distributed soundboard.",
+  "permissions": [],
+  "icons": [
+    {
+      "src": "img/icons/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "img/icons/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

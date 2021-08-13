@@ -2900,7 +2900,7 @@
   dependencies:
     vue-eslint-parser "^7.0.0"
 
-"@vue/preload-webpack-plugin@^1.1.0":
+"@vue/preload-webpack-plugin@^1.1.0", "@vue/preload-webpack-plugin@^1.1.2":
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/@vue/preload-webpack-plugin/-/preload-webpack-plugin-1.1.2.tgz#ceb924b4ecb3b9c43871c7a429a02f8423e621ab"
   integrity sha512-LIZMuJk38pk9U9Ur4YzHjlIyMuxPlACdBIHH9/nGYVTsaGKOSnSuELiE8vS9wa+dJpIYspYUOqk+L1Q4pgHQHQ==

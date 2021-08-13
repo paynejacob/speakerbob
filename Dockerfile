@@ -10,13 +10,12 @@ FROM golang:1.16.6-alpine3.13 as gobuild
 ARG VERSION=dev
 RUN apk add --no-cache curl gcc musl-dev
 WORKDIR /speakerbob
+COPY go.* ./
+COPY main.go main.go
+RUN go mod download
 COPY cmd cmd
 COPY pkg pkg
-COPY go.* ./
-RUN go mod vendor
-COPY main.go main.go
-COPY --from=uibuild /ui/dist assets
-RUN go generate ./...
+COPY --from=uibuild /ui/dist pkg/static/assets
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/cmd.version=$VERSION" -o speakerbob main.go
 
 FROM alpine:3.13

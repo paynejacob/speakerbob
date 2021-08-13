@@ -7,6 +7,7 @@ import (
 )
 
 //go:generate go run github.com/paynejacob/speakerbob/pkg/store/provider --type=Group --package=sound --indexed_fields=Name
+//go:generate go fmt
 type Group struct {
 	Id        string        `json:"id,omitempty"`
 	CreatedAt time.Time     `json:"created_at,omitempty"`
