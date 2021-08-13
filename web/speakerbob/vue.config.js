@@ -1,10 +1,22 @@
 const { GenerateSW } = require('workbox-webpack-plugin')
+const PreloadWebpackPlugin = require('@vue/preload-webpack-plugin')
 
 module.exports = {
   lintOnSave: false,
   productionSourceMap: false,
   configureWebpack: {
-    plugins: [new GenerateSW()]
+    plugins: [
+      new GenerateSW(),
+      new PreloadWebpackPlugin({
+        rel: 'preload',
+        as(entry) {
+          if (/\.css$/.test(entry)) return 'style';
+          if (/\.woff$/.test(entry)) return 'font';
+          if (/\.woff2$/.test(entry)) return 'font';
+          if (/\.png$/.test(entry)) return 'image';
+          return 'script';
+        }
+      })]
   },
   devServer: {
     proxy: {

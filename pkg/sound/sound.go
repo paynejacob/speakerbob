@@ -13,6 +13,7 @@ import (
 )
 
 //go:generate go run github.com/paynejacob/speakerbob/pkg/store/provider --type=Sound --package=sound --indexed_fields=Name
+//go:generate go fmt zz_Sound_provider.go
 type Sound struct {
 	Id        string        `json:"id,omitempty"`
 	CreatedAt time.Time     `json:"created_at,omitempty"`

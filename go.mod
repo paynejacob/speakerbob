@@ -16,7 +16,9 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
-	google.golang.org/protobuf v1.27.1
 )
 
-require github.com/vmihailenco/msgpack/v5 v5.3.4
+require (
+	github.com/gorilla/handlers v1.5.1
+	github.com/vmihailenco/msgpack/v5 v5.3.4
+)

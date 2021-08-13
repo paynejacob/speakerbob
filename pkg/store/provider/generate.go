@@ -44,6 +44,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+
 	defer dest.Close()
 
 	err = t.Execute(dest, resource)
