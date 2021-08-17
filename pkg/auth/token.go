@@ -1,0 +1,98 @@
+package auth
+
+import (
+	"github.com/google/uuid"
+	"github.com/paynejacob/speakerbob/pkg/store"
+	"net/http"
+	"strings"
+	"time"
+)
+
+type TokenType int
+
+const (
+	Invalid TokenType = iota
+	Session
+	Bearer
+)
+
+//go:generate go run github.com/paynejacob/speakerbob/codegen github.com/paynejacob/speakerbob/pkg/auth.Token
+type Token struct {
+	Id        string    `json:"id,omitempty" store:"key"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	Name      string    `json:"name"`
+
+	Token     string    `json:"-" store:"lookup"`
+	Type      TokenType `json:"-"`
+	UserId    string    `json:"-"`
+	ExpiresAt time.Time `json:"-"`
+}
+
+func NewToken() Token {
+	return Token{
+		Id:        strings.Replace(uuid.New().String(), "-", "", 4),
+		Token:     strings.Replace(uuid.New().String(), "-", "", 4),
+		CreatedAt: time.Now(),
+	}
+}
+
+func (p *TokenProvider) FromRequest(r *http.Request) *Token {
+	var t string
+	var token *Token
+	var expectedType TokenType
+	var cookie *http.Cookie
+
+	cookie, _ = r.Cookie(cookieName)
+	if cookie != nil {
+		t = cookie.Value
+		expectedType = Session
+	} else {
+		t = strings.TrimPrefix(r.Header.Get(authorizationHeader), authorizationHeaderValuePrefix)
+		expectedType = Bearer
+	}
+
+	token = p.GetByToken(t)
+
+	// if the token does not exist return nil
+	if token.Id == "" {
+		return nil
+	}
+
+	// if the token is not the expected type do not return it
+	if token.Type != expectedType {
+		return nil
+	}
+
+	return token
+}
+
+func (p *TokenProvider) VerifyRequest(r *http.Request) (*Token, bool) {
+	token := p.FromRequest(r)
+
+	if token == nil {
+		return nil, false
+	}
+
+	return token, time.Now().Before(token.ExpiresAt)
+}
+
+func (p *TokenProvider) BulkDelete(tokens ...*Token) error {
+	keys := make([]store.Key, len(tokens))
+	for i := range tokens {
+		keys[i] = p.GetKey(tokens[i])
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if err := p.Store.Delete(keys...); err != nil {
+		return err
+	}
+
+	for _, token := range tokens {
+		delete(p.cache, token.Id)
+		p.searchIndex.Delete([]byte(token.Id))
+	}
+
+	return nil
+}

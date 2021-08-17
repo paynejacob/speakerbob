@@ -73,3 +73,7 @@ func (b Store) Delete(keys ...store.Key) error {
 		return nil
 	})
 }
+
+func (b Store) Close() error {
+	return b.DB.Close()
+}

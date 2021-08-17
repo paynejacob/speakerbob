@@ -8,4 +8,6 @@ type Store interface {
 	BulkSave(map[Key][]byte) error
 
 	Delete(key ...Key) error
+
+	Close() error
 }

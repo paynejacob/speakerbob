@@ -6,14 +6,14 @@ import (
 	"time"
 )
 
-//go:generate go run github.com/paynejacob/speakerbob/pkg/store/provider --type=Group --package=sound --indexed_fields=Name
-//go:generate go fmt
+//go:generate go run github.com/paynejacob/speakerbob/codegen github.com/paynejacob/speakerbob/pkg/sound.Group
 type Group struct {
-	Id        string        `json:"id,omitempty"`
-	CreatedAt time.Time     `json:"created_at,omitempty"`
-	Name      string        `json:"name,omitempty"`
-	Duration  time.Duration `json:"duration,omitempty"`
-	SoundIds  []string      `json:"sounds,omitempty"`
+	Id        string    `json:"id,omitempty" store:"key"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+
+	Name     string        `json:"name,omitempty" store:"searchable"`
+	Duration time.Duration `json:"duration,omitempty"`
+	SoundIds []string      `json:"sounds,omitempty"`
 }
 
 func NewGroup() Group {

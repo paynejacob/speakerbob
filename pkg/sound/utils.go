@@ -9,11 +9,11 @@ func DeleteSound(groupProvider *GroupProvider, soundProvider *SoundProvider, s *
 	for _, group := range groupProvider.List() {
 		if contains(group.SoundIds, s.Id) {
 			groups = append(groups, group)
-			groupKeys = append(groupKeys, getGroupKey(group))
+			groupKeys = append(groupKeys, groupProvider.GetKey(group))
 		}
 	}
 
-	if err := soundProvider.Store.Delete(append(groupKeys, getSoundKey(s), s.AudioKey())...); err != nil {
+	if err := soundProvider.Store.Delete(append(groupKeys, soundProvider.GetKey(s), soundProvider.AudioKey(s))...); err != nil {
 		return err
 	}
 

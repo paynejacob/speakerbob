@@ -1,12 +1,12 @@
 <template>
-  <div :hidden="connected">
+  <div v-if=!connected>
     <v-icon class="red--text">fa-wifi</v-icon>
   </div>
 </template>
 
 <script lang="ts">
 import Vue from 'vue'
-import { Component, Prop } from 'vue-property-decorator'
+import { Component } from 'vue-property-decorator'
 
 @Component
 export default class ConnectionStatus extends Vue {

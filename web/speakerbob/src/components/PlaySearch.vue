@@ -28,7 +28,6 @@
 
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator'
-import axios from 'axios'
 import { Sound } from '@/definitions/sound'
 import { Group } from '@/definitions/group'
 
@@ -64,13 +63,7 @@ export default class PlaySearch extends Vue {
     clearTimeout(this.timerId)
 
     this.timerId = setTimeout(async () => {
-      const resp = await axios.request({
-        method: 'get',
-        url: '/sound/',
-        params: {
-          q: query
-        }
-      })
+      const resp = await this.$api.get(`/sound/search/?q=${escape(query)}`)
 
       if (resp.data) {
         this.sounds = resp.data.sounds
@@ -83,17 +76,11 @@ export default class PlaySearch extends Vue {
   }
 
   private async playSound (soundId: string) {
-    await axios.request({
-      method: 'PUT',
-      url: `/play/sound/${soundId}/`
-    })
+    await this.$api.put(`/api/play/sound/${soundId}/`)
   }
 
   private async playGroup (groupId: string) {
-    await axios.request({
-      method: 'PUT',
-      url: `/play/group/${groupId}/`
-    })
+    await this.$api.put(`/api/api/play/group/${groupId}/`)
   }
 }
 </script>

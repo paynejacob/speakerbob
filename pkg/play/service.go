@@ -1,6 +1,7 @@
 package play
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/paynejacob/speakerbob/pkg/sound"
@@ -13,32 +14,26 @@ import (
 type Service struct {
 	playQueue *queue
 
-	soundProvider    *sound.SoundProvider
-	groupProvider    *sound.GroupProvider
-	websocketService *websocket.Service
-	maxSoundDuration time.Duration
+	SoundProvider    *sound.SoundProvider
+	GroupProvider    *sound.GroupProvider
+	WebsocketService *websocket.Service
+	MaxSoundDuration time.Duration
 }
 
-func NewService(soundProvider *sound.SoundProvider, groupProvider *sound.GroupProvider, websocketService *websocket.Service, maxSoundDuration time.Duration) *Service {
-	return &Service{playQueue: newQueue(), websocketService: websocketService, soundProvider: soundProvider, groupProvider: groupProvider, maxSoundDuration: maxSoundDuration}
+func (s *Service) RegisterRoutes(router *mux.Router) {
+	router.HandleFunc("/play/sound/{soundId}/", s.playSound).Methods("PUT")
+	router.HandleFunc("/play/group/{groupId}/", s.playGroup).Methods("PUT")
+	router.HandleFunc("/play/say/", s.say).Methods("PUT")
 }
 
-func (s *Service) RegisterRoutes(parent *mux.Router, prefix string) {
-	router := parent.PathPrefix(prefix).Subrouter()
-
-	router.HandleFunc("/sound/{soundId}/", s.playSound).Methods("PUT")
-	router.HandleFunc("/group/{groupId}/", s.playGroup).Methods("PUT")
-	router.HandleFunc("/say/", s.say).Methods("PUT")
-}
-
-func (s *Service) Run() {
+func (s *Service) Run(ctx context.Context) {
 	logrus.Info("starting play service worker")
 
-	s.playQueue.ConsumeQueue(s.websocketService)
+	s.playQueue.ConsumeQueue(ctx, s.WebsocketService)
 }
 
 func (s *Service) playSound(w http.ResponseWriter, r *http.Request) {
-	_sound := *s.soundProvider.Get(mux.Vars(r)["soundId"])
+	_sound := *s.SoundProvider.Get(mux.Vars(r)["soundId"])
 	if _sound.Id == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -50,7 +45,7 @@ func (s *Service) playSound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) playGroup(w http.ResponseWriter, r *http.Request) {
-	group := s.groupProvider.Get(mux.Vars(r)["groupId"])
+	group := s.GroupProvider.Get(mux.Vars(r)["groupId"])
 	if group.Id == "" {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -58,7 +53,7 @@ func (s *Service) playGroup(w http.ResponseWriter, r *http.Request) {
 
 	sounds := make([]sound.Sound, len(group.SoundIds))
 	for i := range group.SoundIds {
-		sounds[i] = *s.soundProvider.Get(group.SoundIds[i])
+		sounds[i] = *s.SoundProvider.Get(group.SoundIds[i])
 	}
 
 	s.playQueue.EnqueueSounds(sounds...)
@@ -76,7 +71,7 @@ func (s *Service) say(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// codegen sound
-	_sound, err := s.soundProvider.NewTTSSound(text, s.maxSoundDuration)
+	_sound, err := s.SoundProvider.NewTTSSound(text, s.MaxSoundDuration)
 	if err != nil {
 		logrus.Errorf("failed to codegen tts sound: %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)

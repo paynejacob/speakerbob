@@ -12,14 +12,14 @@ import (
 	"time"
 )
 
-//go:generate go run github.com/paynejacob/speakerbob/pkg/store/provider --type=Sound --package=sound --indexed_fields=Name
-//go:generate go fmt zz_Sound_provider.go
+//go:generate go run github.com/paynejacob/speakerbob/codegen github.com/paynejacob/speakerbob/pkg/sound.Sound
 type Sound struct {
-	Id        string        `json:"id,omitempty"`
-	CreatedAt time.Time     `json:"created_at,omitempty"`
-	Name      string        `json:"name,omitempty"`
-	Duration  time.Duration `json:"duration,omitempty"`
-	Hidden    bool          `json:"-"`
+	Id        string    `json:"id,omitempty" store:"key"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+
+	Name     string        `json:"name,omitempty" store:"searchable"`
+	Duration time.Duration `json:"duration,omitempty"`
+	Hidden   bool          `json:"-"`
 }
 
 func NewSound() Sound {
@@ -30,8 +30,8 @@ func NewSound() Sound {
 	}
 }
 
-func (s *Sound) AudioKey() store.Key {
-	return store.Key(fmt.Sprintf("audio+%s", getSoundKey(s)))
+func (p *SoundProvider) AudioKey(s *Sound) store.Key {
+	return store.Key(fmt.Sprintf("audio+%s", p.GetKey(s)))
 }
 
 func (p *SoundProvider) NewSound(filename string, audio io.ReadCloser, maxDuration time.Duration) (sound Sound, err error) {
@@ -58,14 +58,14 @@ func (p *SoundProvider) NewSound(filename string, audio io.ReadCloser, maxDurati
 
 	err = p.Store.BulkSave(map[store.Key][]byte{
 		store.Key(sound.Id): soundBuf,
-		sound.AudioKey():    buf.Bytes(),
+		p.AudioKey(&sound):  buf.Bytes(),
 	})
 	if err != nil {
 		return
 	}
 
 	p.cache[sound.Id] = &sound
-	p.index.Write(graph.Tokenize(sound.Name), []byte(sound.Id))
+	p.searchIndex.Write(graph.Tokenize(sound.Name), []byte(sound.Id))
 
 	return
 }
@@ -103,8 +103,8 @@ func (p *SoundProvider) NewTTSSound(text string, maxDuration time.Duration) (*So
 
 	// persist to db
 	err = p.Store.BulkSave(map[store.Key][]byte{
-		getSoundKey(&sound): soundBuf,
-		sound.AudioKey():    normBuf.Bytes(),
+		p.GetKey(&sound):   soundBuf,
+		p.AudioKey(&sound): normBuf.Bytes(),
 	})
 
 	return &sound, err
@@ -113,7 +113,7 @@ func (p *SoundProvider) NewTTSSound(text string, maxDuration time.Duration) (*So
 func (p *SoundProvider) GetAudio(sound *Sound, w io.Writer) (err error) {
 	var b []byte
 
-	b, err = p.Store.Get(sound.AudioKey())
+	b, err = p.Store.Get(p.AudioKey(sound))
 	if err != nil {
 		return err
 	}
