@@ -15,17 +15,16 @@ export default class WSConnection {
   private connection!: WebSocket;
   private messageHooks!: Map<string, MessageHookFn[]>
   private connectionHooks: ConnectionHookFn[] = []
+  private stopped = true
 
   constructor (url: string) {
     this.url = url
     this.messageHooks = new Map<string, MessageHookFn[]>()
-
-    this.connect()
   }
 
   public static install (Vue: typeof _Vue, _options?: WebsocketOptions) {
     const proto = (window.location.protocol === 'https:') ? 'wss' : 'ws'
-    Vue.prototype.$ws = new WSConnection(`${proto}://${window.location.hostname}:${window.location.port}/ws/`)
+    Vue.prototype.$ws = new WSConnection(`${proto}://${window.location.hostname}:${window.location.port}/api/ws/`)
   }
 
   public RegisterMessageHook (type: string, hook: MessageHookFn) {
@@ -56,12 +55,18 @@ export default class WSConnection {
     }
   }
 
-  private connect () {
+  public Connect () {
+    this.stopped = false
+
     this.connection = new WebSocket(this.url)
 
     this.connection.onopen = () => this.connectionOpen()
     this.connection.onclose = () => this.connectionClose()
     this.connection.onmessage = (props) => this.readMessage(props)
+  }
+
+  public Stop () {
+    this.stopped = true
   }
 
   private async connectionOpen () {
@@ -75,7 +80,9 @@ export default class WSConnection {
       await this.connectionHooks[i](false)
     }
 
-    setTimeout(() => this.connect(), Math.random() * 1000)
+    if (!this.stopped) {
+      setTimeout(() => this.Connect(), Math.random() * 1000)
+    }
   }
 
   private async readMessage (event: MessageEvent) {

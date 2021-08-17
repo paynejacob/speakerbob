@@ -20,7 +20,6 @@
 
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator'
-import axios from 'axios'
 
 @Component
 export default class CreateSound extends Vue {
@@ -46,20 +45,12 @@ export default class CreateSound extends Vue {
     const form = new FormData()
     form.append(file.name, file)
 
-    const resp = await axios.request({
-      method: 'POST',
-      url: '/sound/sound/',
-      data: form,
-      headers: {
-        'content-type': 'multipart/form-data'
-      },
-      validateStatus: () => true
-    })
+    try {
+      const resp = await this.$api.post('/sounds/', form, { headers: { 'content-type': 'multipart/form-data' } })
 
-    if (resp.status > 199 && resp.status <= 299) {
       this.soundId = resp.data.id
       this.fileErrors = []
-    } else {
+    } catch {
       this.fileErrors = ['invalid audio file']
     }
   }
@@ -71,13 +62,8 @@ export default class CreateSound extends Vue {
       return
     }
 
-    await axios.request({
-      method: 'PATCH',
-      url: `/sound/sound/${this.soundId}/`,
-      data: {
-        id: this.soundId,
-        name: this.name
-      }
+    await this.$api.patch(`/api/sound/${this.soundId}/`, {
+      name: this.name
     })
 
     this.reset()

@@ -26,7 +26,3 @@ export default class UserCount extends Vue {
   }
 }
 </script>
-
-<style scoped>
-
-</style>

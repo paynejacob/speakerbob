@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"net/http"
@@ -23,14 +24,8 @@ type Service struct {
 	connections []*Conn
 }
 
-func NewService() *Service {
-	return &Service{}
-}
-
-func (s *Service) RegisterRoutes(parent *mux.Router, prefix string) {
-	router := parent.PathPrefix(prefix).Subrouter()
-
-	router.HandleFunc("/", s.connect).Methods("GET")
+func (s *Service) RegisterRoutes(router *mux.Router) {
+	router.HandleFunc("/ws/", s.connect).Methods("GET")
 }
 
 func (s *Service) BroadcastMessage(t MessageType, payload interface{}) {
@@ -47,7 +42,7 @@ func (s *Service) BroadcastMessage(t MessageType, payload interface{}) {
 	}
 }
 
-func (s *Service) Run() {}
+func (s *Service) Run(context.Context) {}
 
 func (s *Service) connect(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)

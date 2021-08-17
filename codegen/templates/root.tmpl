@@ -1,4 +1,5 @@
-package {{ .Package }}
+{{- /*gotype: github.com/paynejacob/speakerbob/pkg/store/provider.resource */ -}}
+package {{ .PackageName }}
 
 import (
     "github.com/paynejacob/speakerbob/pkg/graph"
@@ -8,14 +9,21 @@ import (
     "fmt"
 )
 
-const {{ .Name }}ProviderKeyPrefix = "{{ .Package }}.{{ .Name }}"
+// DO NOT EDIT THIS CODE IS GENERATED
+
+const {{ .Name }}ProviderKeyPrefix = "{{ .PackageName }}.{{ .Name }}"
 
 type {{ .Name }}Provider struct {
     Store store.Store
 
     mu    sync.RWMutex
     cache map[string]*{{ .Name }}
-    index *graph.Graph
+
+    searchIndex *graph.Graph
+
+    {{- range .LookupFields }}
+    lookup{{ .Name }} map[{{ .Type }}]*{{ $.Name }}
+    {{- end}}
 }
 
 func New{{ .Name }}Provider(s store.Store) *{{ .Name }}Provider {
@@ -23,7 +31,10 @@ func New{{ .Name }}Provider(s store.Store) *{{ .Name }}Provider {
         Store: s,
         mu: sync.RWMutex{},
         cache: map[string]*{{ .Name }}{},
-        index: graph.NewGraph(),
+        {{-  range .LookupFields }}
+        lookup{{ .Name }}: map[{{ .Type }}]*{{ $.Name }}{},
+        {{- end}}
+        searchIndex: graph.NewGraph(),
     }
 }
 
@@ -57,7 +68,7 @@ func (p *{{ .Name }}Provider) Search(query string) []*{{ .Name }} {
     p.mu.RLock()
     defer p.mu.RUnlock()
 
-    for _, keyBytes := range p.index.Search([]byte(query)) {
+    for _, keyBytes := range p.searchIndex.Search([]byte(query)) {
         results = append(results, p.cache[string(keyBytes)])
     }
 
@@ -70,14 +81,24 @@ func (p *{{ .Name }}Provider) Save(o *{{ .Name }}) error {
 
     body, err := msgpack.Marshal(o)
 
-    if err = p.Store.Save(get{{ .Name }}Key(o), body); err != nil {
+    if err = p.Store.Save(p.GetKey(o), body); err != nil {
         return err
     }
 
     p.cache[o.{{ .KeyField }}] = o
-    {{ range .IndexedFields }}
-    p.index.Write(graph.Tokenize(o.{{ . }}), []byte(o.{{ $.KeyField }}))
+    {{ range .SearchableFields }}
+    p.searchIndex.Write(graph.Tokenize(o.{{ . }}), []byte(o.{{ $.KeyField }}))
     {{end}}
+    {{ range .LookupFields }}
+    {{if .IsArray }}
+    for _, v := range o.{{ .Name }} {
+        p.lookup{{.Name}}[v] = o
+    }
+    {{ else }}
+    p.lookup{{.Name}}[o.{{ .Name }}] = o
+    {{ end }}
+    {{end}}
+
     return nil
 }
 
@@ -85,12 +106,24 @@ func (p *{{ .Name }}Provider) Delete(o *{{ .Name }}) error {
     p.mu.Lock()
     defer p.mu.Unlock()
 
-    if err := p.Store.Delete(get{{ .Name }}Key(o)); err != nil {
+    if err := p.Store.Delete(p.GetKey(o)); err != nil {
         return err
     }
 
+    o = p.Get(o.{{ .KeyField }})
+
+    {{ range .LookupFields }}
+    {{if .IsArray }}
+    for _, v := range o.{{ .Name }} {
+        delete(p.lookup{{.Name}}, v)
+    }
+    {{ else }}
+    delete(p.lookup{{.Name}}, o.{{ .Name }})
+    {{ end }}
+    {{end}}
+
     delete(p.cache, o.{{ .KeyField }})
-    p.index.Delete([]byte(o.{{ .KeyField }}))
+    p.searchIndex.Delete([]byte(o.{{ .KeyField }}))
 
     return nil
 }
@@ -107,13 +140,36 @@ func (p *{{ .Name }}Provider) Initialize() error {
         }
 
         p.cache[o.{{ .KeyField }}] = &o
-        {{ range .IndexedFields }}
-        p.index.Write(graph.Tokenize(o.{{ . }}), []byte(o.{{ $.KeyField }}))
+        {{ range .SearchableFields }}
+        p.searchIndex.Write(graph.Tokenize(o.{{ . }}), []byte(o.{{ $.KeyField }}))
         {{end}}
+        {{ range .LookupFields }}
+        {{if .IsArray }}
+        for _, v := range o.{{ .Name }} {
+            p.lookup{{.Name}}[v] = &o
+        }
+        {{ else }}
+        p.lookup{{.Name}}[o.{{ .Name }}] = &o
+        {{ end }}
+        {{end}}
+
         return nil
     })
 }
 
-func get{{ .Name }}Key(o *{{ .Name }}) store.Key {
+{{ range .LookupFields }}
+func (p *{{ $.Name }}Provider) GetBy{{ .Name }}(v {{ .Type }}) *{{ $.Name }} {
+    p.mu.RLock()
+    defer p.mu.RUnlock()
+
+    if o, ok := p.lookup{{ .Name }}[v]; ok {
+        return o
+    }
+
+    return &{{ $.Name }}{}
+}
+{{ end }}
+
+func (p *{{ $.Name }}Provider) GetKey(o *{{ .Name }}) store.Key {
     return store.Key(fmt.Sprintf("%s:%s", {{ .Name }}ProviderKeyPrefix, o.{{ .KeyField }}))
 }

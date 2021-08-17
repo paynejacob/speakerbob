@@ -39,7 +39,6 @@
 
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator'
-import axios from 'axios'
 import { Sound } from '@/definitions/sound'
 
 @Component
@@ -68,13 +67,9 @@ export default class CreateGroup extends Vue {
       return
     }
 
-    await axios.request({
-      method: 'POST',
-      url: '/sound/group/',
-      data: {
-        name: this.name,
-        sounds: this.sounds.map((s: Sound) => s.id)
-      }
+    await this.$api.post('/sound/groups/', {
+      name: this.name,
+      sounds: this.sounds.map((s: Sound) => s.id)
     })
 
     this.reset()
@@ -104,13 +99,7 @@ export default class CreateGroup extends Vue {
         return
       }
 
-      const resp = await axios.request({
-        method: 'get',
-        url: '/sound/',
-        params: {
-          q: query
-        }
-      })
+      const resp = await this.$api.get(`/sound/search/?q=${escape(query)}`)
 
       if (resp.data) {
         this.searchResults = resp.data.sounds

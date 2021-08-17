@@ -1,6 +1,7 @@
 package play
 
 import (
+	"context"
 	"github.com/paynejacob/speakerbob/pkg/sound"
 	"github.com/paynejacob/speakerbob/pkg/websocket"
 	"sync"
@@ -41,7 +42,7 @@ func (q *queue) EnqueueSounds(sounds ...sound.Sound) {
 	q.playChannel <- true
 }
 
-func (q *queue) ConsumeQueue(ws *websocket.Service) {
+func (q *queue) ConsumeQueue(ctx context.Context, ws *websocket.Service) {
 	var timer *time.Timer
 	var isEmpty bool
 	var isPlaying bool
@@ -51,6 +52,8 @@ func (q *queue) ConsumeQueue(ws *websocket.Service) {
 
 	for {
 		select {
+		case <-ctx.Done():
+			break
 		case <-q.playChannel:
 			// if something is already playing we do nothing
 			if isPlaying {

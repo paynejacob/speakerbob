@@ -20,7 +20,8 @@ const (
 )
 
 type Conn struct {
-	ws *websocket.Conn
+	ws        *websocket.Conn
+	ExpiresAt time.Time
 
 	service *Service
 	send    chan Message

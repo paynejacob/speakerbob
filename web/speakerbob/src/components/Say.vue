@@ -15,7 +15,6 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator'
-import axios from 'axios'
 
 @Component
 export default class Say extends Vue {
@@ -37,14 +36,7 @@ export default class Say extends Vue {
 
     this.loading = true
 
-    await axios.request({
-      method: 'PUT',
-      url: '/play/say/',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      data: JSON.stringify(this.message)
-    })
+    await this.$api.put('/sound/say', JSON.stringify(this.message))
 
     this.loading = false
 

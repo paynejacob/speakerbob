@@ -1,4 +1,4 @@
-package sound
+package auth
 
 import (
 	"fmt"
@@ -11,27 +11,29 @@ import (
 
 // DO NOT EDIT THIS CODE IS GENERATED
 
-const GroupProviderKeyPrefix = "sound.Group"
+const TokenProviderKeyPrefix = "auth.Token"
 
-type GroupProvider struct {
+type TokenProvider struct {
 	Store store.Store
 
 	mu    sync.RWMutex
-	cache map[string]*Group
+	cache map[string]*Token
 
 	searchIndex *graph.Graph
+	lookupToken map[string]*Token
 }
 
-func NewGroupProvider(s store.Store) *GroupProvider {
-	return &GroupProvider{
+func NewTokenProvider(s store.Store) *TokenProvider {
+	return &TokenProvider{
 		Store:       s,
 		mu:          sync.RWMutex{},
-		cache:       map[string]*Group{},
+		cache:       map[string]*Token{},
+		lookupToken: map[string]*Token{},
 		searchIndex: graph.NewGraph(),
 	}
 }
 
-func (p *GroupProvider) Get(k string) *Group {
+func (p *TokenProvider) Get(k string) *Token {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -39,11 +41,11 @@ func (p *GroupProvider) Get(k string) *Group {
 		return o
 	}
 
-	return &Group{}
+	return &Token{}
 }
 
-func (p *GroupProvider) List() []*Group {
-	rval := make([]*Group, 0)
+func (p *TokenProvider) List() []*Token {
+	rval := make([]*Token, 0)
 
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -55,8 +57,8 @@ func (p *GroupProvider) List() []*Group {
 	return rval
 }
 
-func (p *GroupProvider) Search(query string) []*Group {
-	results := make([]*Group, 0)
+func (p *TokenProvider) Search(query string) []*Token {
+	results := make([]*Token, 0)
 
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -68,7 +70,7 @@ func (p *GroupProvider) Search(query string) []*Group {
 	return results
 }
 
-func (p *GroupProvider) Save(o *Group) error {
+func (p *TokenProvider) Save(o *Token) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -80,12 +82,12 @@ func (p *GroupProvider) Save(o *Group) error {
 
 	p.cache[o.Id] = o
 
-	p.searchIndex.Write(graph.Tokenize(o.Name), []byte(o.Id))
+	p.lookupToken[o.Token] = o
 
 	return nil
 }
 
-func (p *GroupProvider) Delete(o *Group) error {
+func (p *TokenProvider) Delete(o *Token) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -95,18 +97,20 @@ func (p *GroupProvider) Delete(o *Group) error {
 
 	o = p.Get(o.Id)
 
+	delete(p.lookupToken, o.Token)
+
 	delete(p.cache, o.Id)
 	p.searchIndex.Delete([]byte(o.Id))
 
 	return nil
 }
 
-func (p *GroupProvider) Initialize() error {
+func (p *TokenProvider) Initialize() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.Store.List([]byte(GroupProviderKeyPrefix), func(bytes []byte) error {
-		o := Group{}
+	return p.Store.List([]byte(TokenProviderKeyPrefix), func(bytes []byte) error {
+		o := Token{}
 
 		if err := msgpack.Unmarshal(bytes, &o); err != nil {
 			return err
@@ -114,12 +118,23 @@ func (p *GroupProvider) Initialize() error {
 
 		p.cache[o.Id] = &o
 
-		p.searchIndex.Write(graph.Tokenize(o.Name), []byte(o.Id))
+		p.lookupToken[o.Token] = &o
 
 		return nil
 	})
 }
 
-func (p *GroupProvider) GetKey(o *Group) store.Key {
-	return store.Key(fmt.Sprintf("%s:%s", GroupProviderKeyPrefix, o.Id))
+func (p *TokenProvider) GetByToken(v string) *Token {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	if o, ok := p.lookupToken[v]; ok {
+		return o
+	}
+
+	return &Token{}
+}
+
+func (p *TokenProvider) GetKey(o *Token) store.Key {
+	return store.Key(fmt.Sprintf("%s:%s", TokenProviderKeyPrefix, o.Id))
 }

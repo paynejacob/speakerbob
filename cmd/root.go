@@ -2,15 +2,14 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/paynejacob/speakerbob/cmd/server"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"os"
 )
 
 var (
-	dataPath            string
-	durationLimitString string
-	logLevelString      string
+	logLevelString string
 )
 
 var rootCmd = &cobra.Command{
@@ -27,15 +26,14 @@ func Execute() {
 }
 
 func init() {
-	dataPathFlag := "datapath"
-	rootCmd.PersistentFlags().StringVar(&dataPath, dataPathFlag, "/etc/speakerbob/data", "")
-	_ = viper.BindPFlag(dataPathFlag, rootCmd.PersistentFlags().Lookup(dataPathFlag))
-
 	logLevelFlag := "loglevel"
 	rootCmd.PersistentFlags().StringVar(&logLevelString, logLevelFlag, "info", "")
-	_ = viper.BindPFlag(logLevelFlag, rootCmd.PersistentFlags().Lookup(logLevelFlag))
 
-	durationLimitFlag := "durationlimit"
-	rootCmd.PersistentFlags().StringVar(&durationLimitString, durationLimitFlag, "5s", "maximum duration of an uploaded sound.")
-	_ = viper.BindPFlag(durationLimitFlag, rootCmd.PersistentFlags().Lookup(durationLimitFlag))
+	rootCmd.AddCommand(server.Command)
+
+	level, err := logrus.ParseLevel(logLevelString)
+	if err != nil {
+		panic(err)
+	}
+	logrus.SetLevel(level)
 }
