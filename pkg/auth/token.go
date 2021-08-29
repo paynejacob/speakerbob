@@ -2,7 +2,6 @@ package auth
 
 import (
 	"github.com/google/uuid"
-	"github.com/paynejacob/speakerbob/pkg/store"
 	"net/http"
 	"strings"
 	"time"
@@ -16,13 +15,13 @@ const (
 	Bearer
 )
 
-//go:generate go run github.com/paynejacob/speakerbob/codegen github.com/paynejacob/speakerbob/pkg/auth.Token
+//go:generate go run github.com/paynejacob/hotcereal providergen github.com/paynejacob/speakerbob/pkg/auth.Token
 type Token struct {
-	Id        string    `json:"id,omitempty" store:"key"`
+	Id        string    `json:"id,omitempty" hotcereal:"key"`
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	Name      string    `json:"name"`
 
-	Token     string    `json:"-" store:"lookup"`
+	Token     string    `json:"-" hotcereal:"lookup"`
 	Type      TokenType `json:"-"`
 	UserId    string    `json:"-"`
 	ExpiresAt time.Time `json:"-"`
@@ -77,7 +76,7 @@ func (p *TokenProvider) VerifyRequest(r *http.Request) (*Token, bool) {
 }
 
 func (p *TokenProvider) BulkDelete(tokens ...*Token) error {
-	keys := make([]store.Key, len(tokens))
+	keys := make([]string, len(tokens))
 	for i := range tokens {
 		keys[i] = p.GetKey(tokens[i])
 	}
@@ -91,7 +90,7 @@ func (p *TokenProvider) BulkDelete(tokens ...*Token) error {
 
 	for _, token := range tokens {
 		delete(p.cache, token.Id)
-		p.searchIndex.Delete([]byte(token.Id))
+		p.searchIndex.Delete(token.Id)
 	}
 
 	return nil

@@ -1,139 +1,52 @@
 package auth
 
 import (
-	"fmt"
 	"sync"
 
-	"github.com/paynejacob/speakerbob/pkg/graph"
-	"github.com/paynejacob/speakerbob/pkg/store"
+	"github.com/paynejacob/hotcereal/pkg/graph"
+	"github.com/paynejacob/hotcereal/pkg/store"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 // DO NOT EDIT THIS CODE IS GENERATED
 
-const UserProviderKeyPrefix = "auth.User"
-
 type UserProvider struct {
 	Store store.Store
 
-	mu    sync.RWMutex
-	cache map[string]*User
+	mu sync.RWMutex
 
+	cache            map[string]*User
 	searchIndex      *graph.Graph
 	lookupEmail      map[string]*User
 	lookupPrincipals map[Principal]*User
-}
-
-func NewUserProvider(s store.Store) *UserProvider {
-	return &UserProvider{
-		Store:            s,
-		mu:               sync.RWMutex{},
-		cache:            map[string]*User{},
-		lookupEmail:      map[string]*User{},
-		lookupPrincipals: map[Principal]*User{},
-		searchIndex:      graph.NewGraph(),
-	}
-}
-
-func (p *UserProvider) Get(k string) *User {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	if o, ok := p.cache[k]; ok {
-		return o
-	}
-
-	return &User{}
-}
-
-func (p *UserProvider) List() []*User {
-	rval := make([]*User, 0)
-
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	for _, o := range p.cache {
-		rval = append(rval, o)
-	}
-
-	return rval
-}
-
-func (p *UserProvider) Search(query string) []*User {
-	results := make([]*User, 0)
-
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	for _, keyBytes := range p.searchIndex.Search([]byte(query)) {
-		results = append(results, p.cache[string(keyBytes)])
-	}
-
-	return results
-}
-
-func (p *UserProvider) Save(o *User) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	body, err := msgpack.Marshal(o)
-
-	if err = p.Store.Save(p.GetKey(o), body); err != nil {
-		return err
-	}
-
-	p.cache[o.Id] = o
-
-	p.searchIndex.Write(graph.Tokenize(o.Name), []byte(o.Id))
-
-	p.lookupEmail[o.Email] = o
-
-	for _, v := range o.Principals {
-		p.lookupPrincipals[v] = o
-	}
-
-	return nil
-}
-
-func (p *UserProvider) Delete(o *User) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if err := p.Store.Delete(p.GetKey(o)); err != nil {
-		return err
-	}
-
-	o = p.Get(o.Id)
-
-	delete(p.lookupEmail, o.Email)
-
-	for _, v := range o.Principals {
-		delete(p.lookupPrincipals, v)
-	}
-
-	delete(p.cache, o.Id)
-	p.searchIndex.Delete([]byte(o.Id))
-
-	return nil
 }
 
 func (p *UserProvider) Initialize() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.Store.List([]byte(UserProviderKeyPrefix), func(bytes []byte) error {
+	// initialize internal struct values
+	p.cache = map[string]*User{}
+	p.searchIndex = graph.New()
+	p.lookupEmail = map[string]*User{}
+	p.lookupPrincipals = map[Principal]*User{}
+
+	// load values from store
+	return p.Store.List(`auth::`, func(bytes []byte) error {
 		o := User{}
 
 		if err := msgpack.Unmarshal(bytes, &o); err != nil {
 			return err
 		}
 
+		// write to the cache
 		p.cache[o.Id] = &o
 
-		p.searchIndex.Write(graph.Tokenize(o.Name), []byte(o.Id))
+		// write to the search graph
+		p.searchIndex.Write(graph.Tokenize(o.Name), o.Id)
 
+		// add lookups
 		p.lookupEmail[o.Email] = &o
-
 		for _, v := range o.Principals {
 			p.lookupPrincipals[v] = &o
 		}
@@ -142,28 +55,127 @@ func (p *UserProvider) Initialize() error {
 	})
 }
 
+func (p *UserProvider) GetKey(o *User) string {
+	// package::type::id
+	return "auth::User" + o.Id
+}
+
+func (p *UserProvider) Get(k string) *User {
+	p.mu.RLock()
+
+	if o, ok := p.cache[k]; ok {
+		p.mu.RUnlock()
+		return o
+	}
+
+	p.mu.RUnlock()
+	return nil
+}
+
+func (p *UserProvider) List() []*User {
+	rval := make([]*User, 0)
+
+	p.mu.RLock()
+
+	for _, o := range p.cache {
+		rval = append(rval, o)
+	}
+
+	p.mu.RUnlock()
+	return rval
+}
+
+func (p *UserProvider) Search(query string) []*User {
+	results := make([]*User, 0)
+
+	p.mu.RLock()
+
+	for _, key := range p.searchIndex.Search(query) {
+		results = append(results, p.cache[key])
+	}
+
+	p.mu.RUnlock()
+	return results
+}
+
 func (p *UserProvider) GetByEmail(v string) *User {
 	p.mu.RLock()
-	defer p.mu.RUnlock()
 
 	if o, ok := p.lookupEmail[v]; ok {
+		p.mu.RUnlock()
 		return o
 	}
 
-	return &User{}
+	p.mu.RUnlock()
+	return nil
 }
-
 func (p *UserProvider) GetByPrincipals(v Principal) *User {
 	p.mu.RLock()
-	defer p.mu.RUnlock()
 
 	if o, ok := p.lookupPrincipals[v]; ok {
+		p.mu.RUnlock()
 		return o
 	}
 
-	return &User{}
+	p.mu.RUnlock()
+	return nil
 }
 
-func (p *UserProvider) GetKey(o *User) store.Key {
-	return store.Key(fmt.Sprintf("%s:%s", UserProviderKeyPrefix, o.Id))
+func (p *UserProvider) Save(o *User) error {
+	p.mu.Lock()
+
+	// persist the object to the store
+	body, err := msgpack.Marshal(o)
+	if err = p.Store.Save(p.GetKey(o), body); err != nil {
+		p.mu.Unlock()
+		return err
+	}
+
+	// update the cache
+	p.cache[o.Id] = o
+
+	// update the search index
+	p.searchIndex.Write(graph.Tokenize(o.Name), o.Id)
+
+	// update lookups
+	p.lookupEmail[o.Email] = o
+	for _, v := range o.Principals {
+		p.lookupPrincipals[v] = o
+	}
+
+	p.mu.Unlock()
+
+	return nil
+}
+
+func (p *UserProvider) Delete(objs ...*User) error {
+	p.mu.Lock()
+
+	keys := make([]string, len(objs))
+	for i, obj := range objs {
+		keys[i] = p.GetKey(obj)
+	}
+
+	// delete from the persistence layer
+	if err := p.Store.Delete(keys...); err != nil {
+		p.mu.Unlock()
+		return err
+	}
+
+	for _, obj := range objs {
+		// ensure the fields match the stored fields
+		obj = p.Get(obj.Id)
+
+		// cleanup lookups
+		delete(p.lookupEmail, obj.Email)
+		for _, v := range obj.Principals {
+			delete(p.lookupPrincipals, v)
+		}
+
+		delete(p.cache, obj.Id)
+		p.searchIndex.Delete(obj.Id)
+	}
+
+	p.mu.Unlock()
+	return nil
 }

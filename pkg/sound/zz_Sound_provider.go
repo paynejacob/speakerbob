@@ -1,57 +1,79 @@
 package sound
 
 import (
-	"fmt"
 	"sync"
 
-	"github.com/paynejacob/speakerbob/pkg/graph"
-	"github.com/paynejacob/speakerbob/pkg/store"
+	"github.com/paynejacob/hotcereal/pkg/graph"
+	"github.com/paynejacob/hotcereal/pkg/store"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 // DO NOT EDIT THIS CODE IS GENERATED
 
-const SoundProviderKeyPrefix = "sound.Sound"
-
 type SoundProvider struct {
 	Store store.Store
 
-	mu    sync.RWMutex
-	cache map[string]*Sound
+	mu sync.RWMutex
 
+	cache       map[string]*Sound
 	searchIndex *graph.Graph
 }
 
-func NewSoundProvider(s store.Store) *SoundProvider {
-	return &SoundProvider{
-		Store:       s,
-		mu:          sync.RWMutex{},
-		cache:       map[string]*Sound{},
-		searchIndex: graph.NewGraph(),
-	}
+func (p *SoundProvider) Initialize() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// initialize internal struct values
+	p.cache = map[string]*Sound{}
+	p.searchIndex = graph.New()
+
+	// load values from store
+	return p.Store.List(`sound::`, func(bytes []byte) error {
+		o := Sound{}
+
+		if err := msgpack.Unmarshal(bytes, &o); err != nil {
+			return err
+		}
+
+		// write to the cache
+		p.cache[o.Id] = &o
+
+		// write to the search graph
+		p.searchIndex.Write(graph.Tokenize(o.Name), o.Id)
+
+		// add lookups
+
+		return nil
+	})
+}
+
+func (p *SoundProvider) GetKey(o *Sound) string {
+	// package::type::id
+	return "sound::Sound" + o.Id
 }
 
 func (p *SoundProvider) Get(k string) *Sound {
 	p.mu.RLock()
-	defer p.mu.RUnlock()
 
 	if o, ok := p.cache[k]; ok {
+		p.mu.RUnlock()
 		return o
 	}
 
-	return &Sound{}
+	p.mu.RUnlock()
+	return nil
 }
 
 func (p *SoundProvider) List() []*Sound {
 	rval := make([]*Sound, 0)
 
 	p.mu.RLock()
-	defer p.mu.RUnlock()
 
 	for _, o := range p.cache {
 		rval = append(rval, o)
 	}
 
+	p.mu.RUnlock()
 	return rval
 }
 
@@ -59,67 +81,62 @@ func (p *SoundProvider) Search(query string) []*Sound {
 	results := make([]*Sound, 0)
 
 	p.mu.RLock()
-	defer p.mu.RUnlock()
 
-	for _, keyBytes := range p.searchIndex.Search([]byte(query)) {
-		results = append(results, p.cache[string(keyBytes)])
+	for _, key := range p.searchIndex.Search(query) {
+		results = append(results, p.cache[key])
 	}
 
+	p.mu.RUnlock()
 	return results
 }
 
 func (p *SoundProvider) Save(o *Sound) error {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 
+	// persist the object to the store
 	body, err := msgpack.Marshal(o)
-
 	if err = p.Store.Save(p.GetKey(o), body); err != nil {
+		p.mu.Unlock()
 		return err
 	}
 
+	// update the cache
 	p.cache[o.Id] = o
 
-	p.searchIndex.Write(graph.Tokenize(o.Name), []byte(o.Id))
+	// update the search index
+	p.searchIndex.Write(graph.Tokenize(o.Name), o.Id)
+
+	// update lookups
+
+	p.mu.Unlock()
 
 	return nil
 }
 
-func (p *SoundProvider) Delete(o *Sound) error {
+func (p *SoundProvider) Delete(objs ...*Sound) error {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 
-	if err := p.Store.Delete(p.GetKey(o)); err != nil {
+	keys := make([]string, len(objs))
+	for i, obj := range objs {
+		keys[i] = p.GetKey(obj)
+	}
+
+	// delete from the persistence layer
+	if err := p.Store.Delete(keys...); err != nil {
+		p.mu.Unlock()
 		return err
 	}
 
-	o = p.Get(o.Id)
+	for _, obj := range objs {
+		// ensure the fields match the stored fields
+		obj = p.Get(obj.Id)
 
-	delete(p.cache, o.Id)
-	p.searchIndex.Delete([]byte(o.Id))
+		// cleanup lookups
 
+		delete(p.cache, obj.Id)
+		p.searchIndex.Delete(obj.Id)
+	}
+
+	p.mu.Unlock()
 	return nil
-}
-
-func (p *SoundProvider) Initialize() error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	return p.Store.List([]byte(SoundProviderKeyPrefix), func(bytes []byte) error {
-		o := Sound{}
-
-		if err := msgpack.Unmarshal(bytes, &o); err != nil {
-			return err
-		}
-
-		p.cache[o.Id] = &o
-
-		p.searchIndex.Write(graph.Tokenize(o.Name), []byte(o.Id))
-
-		return nil
-	})
-}
-
-func (p *SoundProvider) GetKey(o *Sound) store.Key {
-	return store.Key(fmt.Sprintf("%s:%s", SoundProviderKeyPrefix, o.Id))
 }
