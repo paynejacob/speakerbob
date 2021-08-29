@@ -6,12 +6,12 @@ import (
 	"time"
 )
 
-//go:generate go run github.com/paynejacob/speakerbob/codegen github.com/paynejacob/speakerbob/pkg/sound.Group
+//go:generate go run github.com/paynejacob/hotcereal providergen github.com/paynejacob/speakerbob/pkg/sound.Group
 type Group struct {
-	Id        string    `json:"id,omitempty" store:"key"`
+	Id        string    `json:"id,omitempty" hotcereal:"key"`
 	CreatedAt time.Time `json:"created_at,omitempty"`
 
-	Name     string        `json:"name,omitempty" store:"searchable"`
+	Name     string        `json:"name,omitempty" hotcereal:"searchable"`
 	Duration time.Duration `json:"duration,omitempty"`
 	SoundIds []string      `json:"sounds,omitempty"`
 }
