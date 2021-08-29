@@ -5,19 +5,18 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/paynejacob/speakerbob/pkg/graph"
-	"github.com/paynejacob/speakerbob/pkg/store"
 	"github.com/vmihailenco/msgpack/v5"
 	"io"
 	"strings"
 	"time"
 )
 
-//go:generate go run github.com/paynejacob/speakerbob/codegen github.com/paynejacob/speakerbob/pkg/sound.Sound
+//go:generate go run github.com/paynejacob/hotcereal providergen github.com/paynejacob/speakerbob/pkg/sound.Sound
 type Sound struct {
-	Id        string    `json:"id,omitempty" store:"key"`
+	Id        string    `json:"id,omitempty" hotcereal:"key"`
 	CreatedAt time.Time `json:"created_at,omitempty"`
 
-	Name     string        `json:"name,omitempty" store:"searchable"`
+	Name     string        `json:"name,omitempty" hotcereal:"searchable"`
 	Duration time.Duration `json:"duration,omitempty"`
 	Hidden   bool          `json:"-"`
 }
@@ -30,8 +29,8 @@ func NewSound() Sound {
 	}
 }
 
-func (p *SoundProvider) AudioKey(s *Sound) store.Key {
-	return store.Key(fmt.Sprintf("audio+%s", p.GetKey(s)))
+func (p *SoundProvider) AudioKey(s *Sound) string {
+	return fmt.Sprintf("audio+%s", p.GetKey(s))
 }
 
 func (p *SoundProvider) NewSound(filename string, audio io.ReadCloser, maxDuration time.Duration) (sound Sound, err error) {
@@ -56,9 +55,9 @@ func (p *SoundProvider) NewSound(filename string, audio io.ReadCloser, maxDurati
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	err = p.Store.BulkSave(map[store.Key][]byte{
-		store.Key(sound.Id): soundBuf,
-		p.AudioKey(&sound):  buf.Bytes(),
+	err = p.Store.BulkSave(map[string][]byte{
+		sound.Id:           soundBuf,
+		p.AudioKey(&sound): buf.Bytes(),
 	})
 	if err != nil {
 		return
@@ -102,7 +101,7 @@ func (p *SoundProvider) NewTTSSound(text string, maxDuration time.Duration) (*So
 	soundBuf, _ = msgpack.Marshal(&sound)
 
 	// persist to db
-	err = p.Store.BulkSave(map[store.Key][]byte{
+	err = p.Store.BulkSave(map[string][]byte{
 		p.GetKey(&sound):   soundBuf,
 		p.AudioKey(&sound): normBuf.Bytes(),
 	})

@@ -1,57 +1,79 @@
 package sound
 
 import (
-	"fmt"
 	"sync"
 
-	"github.com/paynejacob/speakerbob/pkg/graph"
-	"github.com/paynejacob/speakerbob/pkg/store"
+	"github.com/paynejacob/hotcereal/pkg/graph"
+	"github.com/paynejacob/hotcereal/pkg/store"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 // DO NOT EDIT THIS CODE IS GENERATED
 
-const GroupProviderKeyPrefix = "sound.Group"
-
 type GroupProvider struct {
 	Store store.Store
 
-	mu    sync.RWMutex
-	cache map[string]*Group
+	mu sync.RWMutex
 
+	cache       map[string]*Group
 	searchIndex *graph.Graph
 }
 
-func NewGroupProvider(s store.Store) *GroupProvider {
-	return &GroupProvider{
-		Store:       s,
-		mu:          sync.RWMutex{},
-		cache:       map[string]*Group{},
-		searchIndex: graph.NewGraph(),
-	}
+func (p *GroupProvider) Initialize() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// initialize internal struct values
+	p.cache = map[string]*Group{}
+	p.searchIndex = graph.New()
+
+	// load values from store
+	return p.Store.List(`sound::`, func(bytes []byte) error {
+		o := Group{}
+
+		if err := msgpack.Unmarshal(bytes, &o); err != nil {
+			return err
+		}
+
+		// write to the cache
+		p.cache[o.Id] = &o
+
+		// write to the search graph
+		p.searchIndex.Write(graph.Tokenize(o.Name), o.Id)
+
+		// add lookups
+
+		return nil
+	})
+}
+
+func (p *GroupProvider) GetKey(o *Group) string {
+	// package::type::id
+	return "sound::Group" + o.Id
 }
 
 func (p *GroupProvider) Get(k string) *Group {
 	p.mu.RLock()
-	defer p.mu.RUnlock()
 
 	if o, ok := p.cache[k]; ok {
+		p.mu.RUnlock()
 		return o
 	}
 
-	return &Group{}
+	p.mu.RUnlock()
+	return nil
 }
 
 func (p *GroupProvider) List() []*Group {
 	rval := make([]*Group, 0)
 
 	p.mu.RLock()
-	defer p.mu.RUnlock()
 
 	for _, o := range p.cache {
 		rval = append(rval, o)
 	}
 
+	p.mu.RUnlock()
 	return rval
 }
 
@@ -59,67 +81,62 @@ func (p *GroupProvider) Search(query string) []*Group {
 	results := make([]*Group, 0)
 
 	p.mu.RLock()
-	defer p.mu.RUnlock()
 
-	for _, keyBytes := range p.searchIndex.Search([]byte(query)) {
-		results = append(results, p.cache[string(keyBytes)])
+	for _, key := range p.searchIndex.Search(query) {
+		results = append(results, p.cache[key])
 	}
 
+	p.mu.RUnlock()
 	return results
 }
 
 func (p *GroupProvider) Save(o *Group) error {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 
+	// persist the object to the store
 	body, err := msgpack.Marshal(o)
-
 	if err = p.Store.Save(p.GetKey(o), body); err != nil {
+		p.mu.Unlock()
 		return err
 	}
 
+	// update the cache
 	p.cache[o.Id] = o
 
-	p.searchIndex.Write(graph.Tokenize(o.Name), []byte(o.Id))
+	// update the search index
+	p.searchIndex.Write(graph.Tokenize(o.Name), o.Id)
+
+	// update lookups
+
+	p.mu.Unlock()
 
 	return nil
 }
 
-func (p *GroupProvider) Delete(o *Group) error {
+func (p *GroupProvider) Delete(objs ...*Group) error {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 
-	if err := p.Store.Delete(p.GetKey(o)); err != nil {
+	keys := make([]string, len(objs))
+	for i, obj := range objs {
+		keys[i] = p.GetKey(obj)
+	}
+
+	// delete from the persistence layer
+	if err := p.Store.Delete(keys...); err != nil {
+		p.mu.Unlock()
 		return err
 	}
 
-	o = p.Get(o.Id)
+	for _, obj := range objs {
+		// ensure the fields match the stored fields
+		obj = p.Get(obj.Id)
 
-	delete(p.cache, o.Id)
-	p.searchIndex.Delete([]byte(o.Id))
+		// cleanup lookups
 
+		delete(p.cache, obj.Id)
+		p.searchIndex.Delete(obj.Id)
+	}
+
+	p.mu.Unlock()
 	return nil
-}
-
-func (p *GroupProvider) Initialize() error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	return p.Store.List([]byte(GroupProviderKeyPrefix), func(bytes []byte) error {
-		o := Group{}
-
-		if err := msgpack.Unmarshal(bytes, &o); err != nil {
-			return err
-		}
-
-		p.cache[o.Id] = &o
-
-		p.searchIndex.Write(graph.Tokenize(o.Name), []byte(o.Id))
-
-		return nil
-	})
-}
-
-func (p *GroupProvider) GetKey(o *Group) store.Key {
-	return store.Key(fmt.Sprintf("%s:%s", GroupProviderKeyPrefix, o.Id))
 }

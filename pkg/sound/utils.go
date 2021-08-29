@@ -1,10 +1,8 @@
 package sound
 
-import "github.com/paynejacob/speakerbob/pkg/store"
-
 func DeleteSound(groupProvider *GroupProvider, soundProvider *SoundProvider, s *Sound) error {
 	groups := make([]*Group, 0)
-	groupKeys := make([]store.Key, 0)
+	groupKeys := make([]string, 0)
 
 	for _, group := range groupProvider.List() {
 		if contains(group.SoundIds, s.Id) {
