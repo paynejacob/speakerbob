@@ -2,10 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/paynejacob/speakerbob/pkg/version"
 	"github.com/spf13/cobra"
 )
-
-var version = "" // set at compile time with -ldflags "-X github.com/paynejacob/speakerbob/cmd.Version=x.y.yz"
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
@@ -19,5 +18,5 @@ var versionCmd = &cobra.Command{
 }
 
 func Version(*cobra.Command, []string) {
-	fmt.Println(version)
+	fmt.Println(version.Version)
 }

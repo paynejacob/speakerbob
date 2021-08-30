@@ -5,11 +5,12 @@ package server
 import (
 	"context"
 	"github.com/dgraph-io/badger/v3"
+	"github.com/paynejacob/hotcereal/pkg/store"
 	"github.com/paynejacob/speakerbob/pkg/server"
 	"github.com/paynejacob/speakerbob/pkg/store/badgerdb"
+	"github.com/paynejacob/speakerbob/pkg/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"log"
 	"os"
 	"os/signal"
 )
@@ -46,14 +47,18 @@ func Server(*cobra.Command, []string) {
 		DB: db,
 	}
 
+	err = _store.Save(store.TypeKey{"versionVersion", 7, 7}, []byte(version.Version))
+	if err != nil {
+		logrus.Fatal("failed to set database version")
+	}
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// watch for shutdown signals
 	go func() {
-		oscall := <-c
-		log.Printf("system call:%+v", oscall)
+		<-c
 		cancel()
 	}()
 
