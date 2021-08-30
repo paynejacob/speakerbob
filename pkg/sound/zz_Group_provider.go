@@ -28,7 +28,7 @@ func (p *GroupProvider) Initialize() error {
 	p.searchIndex = graph.New()
 
 	// load values from store
-	return p.Store.List(`sound::`, func(bytes []byte) error {
+	return p.Store.List(p.TypeKey(), func(bytes []byte) error {
 		o := Group{}
 
 		if err := msgpack.Unmarshal(bytes, &o); err != nil {
@@ -47,15 +47,10 @@ func (p *GroupProvider) Initialize() error {
 	})
 }
 
-func (p *GroupProvider) GetKey(o *Group) string {
-	// package::type::id
-	return "sound::Group" + o.Id
-}
-
-func (p *GroupProvider) Get(k string) *Group {
+func (p *GroupProvider) Get(id string) *Group {
 	p.mu.RLock()
 
-	if o, ok := p.cache[k]; ok {
+	if o, ok := p.cache[id]; ok {
 		p.mu.RUnlock()
 		return o
 	}
@@ -82,8 +77,8 @@ func (p *GroupProvider) Search(query string) []*Group {
 
 	p.mu.RLock()
 
-	for _, key := range p.searchIndex.Search(query) {
-		results = append(results, p.cache[key])
+	for _, id := range p.searchIndex.Search(query) {
+		results = append(results, p.cache[id])
 	}
 
 	p.mu.RUnlock()
@@ -95,7 +90,7 @@ func (p *GroupProvider) Save(o *Group) error {
 
 	// persist the object to the store
 	body, err := msgpack.Marshal(o)
-	if err = p.Store.Save(p.GetKey(o), body); err != nil {
+	if err = p.Store.Save(p.ObjectKey(o), body); err != nil {
 		p.mu.Unlock()
 		return err
 	}
@@ -116,9 +111,12 @@ func (p *GroupProvider) Save(o *Group) error {
 func (p *GroupProvider) Delete(objs ...*Group) error {
 	p.mu.Lock()
 
-	keys := make([]string, len(objs))
-	for i, obj := range objs {
-		keys[i] = p.GetKey(obj)
+	var keys []store.Key
+
+	for _, obj := range objs {
+		keys = append(keys,
+			p.ObjectKey(obj),
+		)
 	}
 
 	// delete from the persistence layer
@@ -139,4 +137,49 @@ func (p *GroupProvider) Delete(objs ...*Group) error {
 
 	p.mu.Unlock()
 	return nil
+}
+
+func (p *GroupProvider) TypeKey() store.TypeKey {
+	return store.TypeKey{
+		Body:          "soundGroup",
+		PackageLength: 5,
+		TypeLength:    5,
+	}
+}
+
+func (p *GroupProvider) ObjectKey(o *Group) store.ObjectKey {
+	return store.ObjectKey{
+		TypeKey:  p.TypeKey(),
+		IdLength: len(o.Id),
+	}
+}
+
+func (p *GroupProvider) FieldKey(o *Group, fieldName string) store.FieldKey {
+	return store.FieldKey{
+		ObjectKey:   p.ObjectKey(o),
+		FieldLength: len(fieldName),
+	}
+}
+
+var _ msgpack.CustomEncoder = (*Group)(nil)
+var _ msgpack.CustomDecoder = (*Group)(nil)
+
+func (s *Group) EncodeMsgpack(enc *msgpack.Encoder) error {
+	return enc.EncodeMulti(
+		s.Id,
+		s.CreatedAt,
+		s.Name,
+		s.Duration,
+		s.SoundIds,
+	)
+}
+
+func (s *Group) DecodeMsgpack(dec *msgpack.Decoder) error {
+	return dec.DecodeMulti(
+		s.Id,
+		s.CreatedAt,
+		s.Name,
+		s.Duration,
+		s.SoundIds,
+	)
 }

@@ -73,7 +73,7 @@ func (s *Service) Run(ctx context.Context) {
 				}
 			}
 
-			err = s.TokenProvider.BulkDelete(expiredTokens...)
+			err = s.TokenProvider.Delete(expiredTokens...)
 			if err != nil {
 				logrus.Errorf("Failed to cleanup expired tokens: %s", err.Error())
 			}

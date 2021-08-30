@@ -74,24 +74,3 @@ func (p *TokenProvider) VerifyRequest(r *http.Request) (*Token, bool) {
 
 	return token, time.Now().Before(token.ExpiresAt)
 }
-
-func (p *TokenProvider) BulkDelete(tokens ...*Token) error {
-	keys := make([]string, len(tokens))
-	for i := range tokens {
-		keys[i] = p.GetKey(tokens[i])
-	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if err := p.Store.Delete(keys...); err != nil {
-		return err
-	}
-
-	for _, token := range tokens {
-		delete(p.cache, token.Id)
-		p.searchIndex.Delete(token.Id)
-	}
-
-	return nil
-}

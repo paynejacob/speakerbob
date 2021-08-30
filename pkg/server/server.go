@@ -5,21 +5,18 @@ import (
 	"fmt"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/paynejacob/hotcereal/pkg/provider"
+	"github.com/paynejacob/hotcereal/pkg/store"
 	"github.com/paynejacob/speakerbob/pkg/auth"
 	"github.com/paynejacob/speakerbob/pkg/play"
 	"github.com/paynejacob/speakerbob/pkg/service"
 	"github.com/paynejacob/speakerbob/pkg/sound"
 	"github.com/paynejacob/speakerbob/pkg/static"
-	"github.com/paynejacob/speakerbob/pkg/store"
 	"github.com/paynejacob/speakerbob/pkg/websocket"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 )
-
-type Provider interface {
-	Initialize() error
-}
 
 type Config struct {
 	Host          string
@@ -30,7 +27,7 @@ type Config struct {
 
 type Server struct {
 	httpServer     http.Server
-	providers      []Provider
+	providers      []provider.Provider
 	serviceManager service.Manager
 }
 
@@ -38,11 +35,11 @@ func NewServer(_store store.Store, config Config) *Server {
 	var svr Server
 
 	// Providers
-	tokenProvider := auth.NewTokenProvider(_store)
-	userProvider := auth.NewUserProvider(_store)
-	soundProvider := sound.NewSoundProvider(_store)
-	groupProvider := sound.NewGroupProvider(_store)
-	svr.providers = []Provider{tokenProvider, userProvider, soundProvider, groupProvider}
+	tokenProvider := auth.TokenProvider{Store: _store}
+	userProvider := auth.UserProvider{Store: _store}
+	soundProvider := sound.SoundProvider{Store: _store}
+	groupProvider := sound.GroupProvider{Store: _store}
+	svr.providers = []provider.Provider{&tokenProvider, &userProvider, &soundProvider, &groupProvider}
 
 	router := mux.NewRouter()
 	authRouter := router.PathPrefix("/auth").Subrouter()
@@ -52,20 +49,20 @@ func NewServer(_store store.Store, config Config) *Server {
 	websocketService := &websocket.Service{}
 	svr.serviceManager.RegisterService(apiRouter, websocketService)
 	svr.serviceManager.RegisterService(apiRouter, &play.Service{
-		SoundProvider:    soundProvider,
-		GroupProvider:    groupProvider,
+		SoundProvider:    &soundProvider,
+		GroupProvider:    &groupProvider,
 		WebsocketService: websocketService,
 		MaxSoundDuration: config.DurationLimit,
 	})
 	svr.serviceManager.RegisterService(apiRouter, &sound.Service{
-		SoundProvider:    soundProvider,
-		GroupProvider:    groupProvider,
+		SoundProvider:    &soundProvider,
+		GroupProvider:    &groupProvider,
 		WebsocketService: websocketService,
 		MaxSoundDuration: config.DurationLimit,
 	})
 	authService := &auth.Service{
-		TokenProvider: tokenProvider,
-		UserProvider:  userProvider,
+		TokenProvider: &tokenProvider,
+		UserProvider:  &userProvider,
 		Providers:     config.AuthProviders,
 	}
 	svr.serviceManager.RegisterService(authRouter, authService)
