@@ -14,7 +14,7 @@ require (
 
 require (
 	github.com/gorilla/handlers v1.5.1
-	github.com/paynejacob/hotcereal v0.0.0-20210830035547-7479aacc83e2
+	github.com/paynejacob/hotcereal v0.1.0-alpha
 	github.com/vmihailenco/msgpack/v5 v5.3.4
 	golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf // indirect
 	gopkg.in/yaml.v2 v2.4.0
