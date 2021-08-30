@@ -32,7 +32,7 @@ func (p *UserProvider) Initialize() error {
 	p.lookupPrincipals = map[Principal]*User{}
 
 	// load values from store
-	return p.Store.List(`auth::`, func(bytes []byte) error {
+	return p.Store.List(p.TypeKey(), func(bytes []byte) error {
 		o := User{}
 
 		if err := msgpack.Unmarshal(bytes, &o); err != nil {
@@ -55,15 +55,10 @@ func (p *UserProvider) Initialize() error {
 	})
 }
 
-func (p *UserProvider) GetKey(o *User) string {
-	// package::type::id
-	return "auth::User" + o.Id
-}
-
-func (p *UserProvider) Get(k string) *User {
+func (p *UserProvider) Get(id string) *User {
 	p.mu.RLock()
 
-	if o, ok := p.cache[k]; ok {
+	if o, ok := p.cache[id]; ok {
 		p.mu.RUnlock()
 		return o
 	}
@@ -90,8 +85,8 @@ func (p *UserProvider) Search(query string) []*User {
 
 	p.mu.RLock()
 
-	for _, key := range p.searchIndex.Search(query) {
-		results = append(results, p.cache[key])
+	for _, id := range p.searchIndex.Search(query) {
+		results = append(results, p.cache[id])
 	}
 
 	p.mu.RUnlock()
@@ -126,7 +121,7 @@ func (p *UserProvider) Save(o *User) error {
 
 	// persist the object to the store
 	body, err := msgpack.Marshal(o)
-	if err = p.Store.Save(p.GetKey(o), body); err != nil {
+	if err = p.Store.Save(p.ObjectKey(o), body); err != nil {
 		p.mu.Unlock()
 		return err
 	}
@@ -151,9 +146,12 @@ func (p *UserProvider) Save(o *User) error {
 func (p *UserProvider) Delete(objs ...*User) error {
 	p.mu.Lock()
 
-	keys := make([]string, len(objs))
-	for i, obj := range objs {
-		keys[i] = p.GetKey(obj)
+	var keys []store.Key
+
+	for _, obj := range objs {
+		keys = append(keys,
+			p.ObjectKey(obj),
+		)
 	}
 
 	// delete from the persistence layer
@@ -178,4 +176,49 @@ func (p *UserProvider) Delete(objs ...*User) error {
 
 	p.mu.Unlock()
 	return nil
+}
+
+func (p *UserProvider) TypeKey() store.TypeKey {
+	return store.TypeKey{
+		Body:          "authUser",
+		PackageLength: 4,
+		TypeLength:    4,
+	}
+}
+
+func (p *UserProvider) ObjectKey(o *User) store.ObjectKey {
+	return store.ObjectKey{
+		TypeKey:  p.TypeKey(),
+		IdLength: len(o.Id),
+	}
+}
+
+func (p *UserProvider) FieldKey(o *User, fieldName string) store.FieldKey {
+	return store.FieldKey{
+		ObjectKey:   p.ObjectKey(o),
+		FieldLength: len(fieldName),
+	}
+}
+
+var _ msgpack.CustomEncoder = (*User)(nil)
+var _ msgpack.CustomDecoder = (*User)(nil)
+
+func (s *User) EncodeMsgpack(enc *msgpack.Encoder) error {
+	return enc.EncodeMulti(
+		s.Id,
+		s.CreatedAt,
+		s.Name,
+		s.Email,
+		s.Principals,
+	)
+}
+
+func (s *User) DecodeMsgpack(dec *msgpack.Decoder) error {
+	return dec.DecodeMulti(
+		s.Id,
+		s.CreatedAt,
+		s.Name,
+		s.Email,
+		s.Principals,
+	)
 }

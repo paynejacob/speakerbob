@@ -1,6 +1,7 @@
 package sound
 
 import (
+	"io"
 	"sync"
 
 	"github.com/paynejacob/hotcereal/pkg/graph"
@@ -28,7 +29,7 @@ func (p *SoundProvider) Initialize() error {
 	p.searchIndex = graph.New()
 
 	// load values from store
-	return p.Store.List(`sound::`, func(bytes []byte) error {
+	return p.Store.List(p.TypeKey(), func(bytes []byte) error {
 		o := Sound{}
 
 		if err := msgpack.Unmarshal(bytes, &o); err != nil {
@@ -47,15 +48,10 @@ func (p *SoundProvider) Initialize() error {
 	})
 }
 
-func (p *SoundProvider) GetKey(o *Sound) string {
-	// package::type::id
-	return "sound::Sound" + o.Id
-}
-
-func (p *SoundProvider) Get(k string) *Sound {
+func (p *SoundProvider) Get(id string) *Sound {
 	p.mu.RLock()
 
-	if o, ok := p.cache[k]; ok {
+	if o, ok := p.cache[id]; ok {
 		p.mu.RUnlock()
 		return o
 	}
@@ -82,8 +78,8 @@ func (p *SoundProvider) Search(query string) []*Sound {
 
 	p.mu.RLock()
 
-	for _, key := range p.searchIndex.Search(query) {
-		results = append(results, p.cache[key])
+	for _, id := range p.searchIndex.Search(query) {
+		results = append(results, p.cache[id])
 	}
 
 	p.mu.RUnlock()
@@ -95,7 +91,7 @@ func (p *SoundProvider) Save(o *Sound) error {
 
 	// persist the object to the store
 	body, err := msgpack.Marshal(o)
-	if err = p.Store.Save(p.GetKey(o), body); err != nil {
+	if err = p.Store.Save(p.ObjectKey(o), body); err != nil {
 		p.mu.Unlock()
 		return err
 	}
@@ -116,9 +112,13 @@ func (p *SoundProvider) Save(o *Sound) error {
 func (p *SoundProvider) Delete(objs ...*Sound) error {
 	p.mu.Lock()
 
-	keys := make([]string, len(objs))
-	for i, obj := range objs {
-		keys[i] = p.GetKey(obj)
+	var keys []store.Key
+
+	for _, obj := range objs {
+		keys = append(keys,
+			p.ObjectKey(obj),
+			p.FieldKey(obj, "Audio"),
+		)
 	}
 
 	// delete from the persistence layer
@@ -139,4 +139,57 @@ func (p *SoundProvider) Delete(objs ...*Sound) error {
 
 	p.mu.Unlock()
 	return nil
+}
+
+func (p *SoundProvider) ReadAudio(o *Sound, w io.Writer) error {
+	return p.Store.ReadLazy(p.FieldKey(o, "Audio"), w)
+}
+
+func (p *SoundProvider) WriteAudio(o *Sound, r io.Reader) error {
+	return p.Store.WriteLazy(p.FieldKey(o, "Audio"), r)
+}
+
+func (p *SoundProvider) TypeKey() store.TypeKey {
+	return store.TypeKey{
+		Body:          "soundSound",
+		PackageLength: 5,
+		TypeLength:    5,
+	}
+}
+
+func (p *SoundProvider) ObjectKey(o *Sound) store.ObjectKey {
+	return store.ObjectKey{
+		TypeKey:  p.TypeKey(),
+		IdLength: len(o.Id),
+	}
+}
+
+func (p *SoundProvider) FieldKey(o *Sound, fieldName string) store.FieldKey {
+	return store.FieldKey{
+		ObjectKey:   p.ObjectKey(o),
+		FieldLength: len(fieldName),
+	}
+}
+
+var _ msgpack.CustomEncoder = (*Sound)(nil)
+var _ msgpack.CustomDecoder = (*Sound)(nil)
+
+func (s *Sound) EncodeMsgpack(enc *msgpack.Encoder) error {
+	return enc.EncodeMulti(
+		s.Id,
+		s.CreatedAt,
+		s.Name,
+		s.Duration,
+		s.Hidden,
+	)
+}
+
+func (s *Sound) DecodeMsgpack(dec *msgpack.Decoder) error {
+	return dec.DecodeMulti(
+		s.Id,
+		s.CreatedAt,
+		s.Name,
+		s.Duration,
+		s.Hidden,
+	)
 }

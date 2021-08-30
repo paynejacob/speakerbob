@@ -2,10 +2,7 @@ package sound
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/google/uuid"
-	"github.com/paynejacob/speakerbob/pkg/graph"
-	"github.com/vmihailenco/msgpack/v5"
 	"io"
 	"strings"
 	"time"
@@ -19,6 +16,7 @@ type Sound struct {
 	Name     string        `json:"name,omitempty" hotcereal:"searchable"`
 	Duration time.Duration `json:"duration,omitempty"`
 	Hidden   bool          `json:"-"`
+	Audio    []byte        `json:"-" hotcereal:"lazy"`
 }
 
 func NewSound() Sound {
@@ -29,51 +27,43 @@ func NewSound() Sound {
 	}
 }
 
-func (p *SoundProvider) AudioKey(s *Sound) string {
-	return fmt.Sprintf("audio+%s", p.GetKey(s))
-}
-
-func (p *SoundProvider) NewSound(filename string, audio io.ReadCloser, maxDuration time.Duration) (sound Sound, err error) {
+func (p *SoundProvider) NewSound(filename string, audio io.ReadCloser, maxDuration time.Duration) (*Sound, error) {
+	var err error
 	var buf bytes.Buffer
-	var soundBuf []byte
 
-	sound = NewSound()
+	sound := NewSound()
 
 	err = normalizeAudio(filename, maxDuration, audio, &buf)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	durationBuf := buf
 	sound.Duration, err = getAudioDuration(&durationBuf)
 	if err != nil {
-		return
+		return nil, err
 	}
-
-	soundBuf, _ = msgpack.Marshal(sound)
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	err = p.Store.BulkSave(map[string][]byte{
-		sound.Id:           soundBuf,
-		p.AudioKey(&sound): buf.Bytes(),
-	})
+	err = p.Save(&sound)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	p.cache[sound.Id] = &sound
-	p.searchIndex.Write(graph.Tokenize(sound.Name), []byte(sound.Id))
+	err = p.WriteAudio(&sound, &buf)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &sound, err
 }
 
 func (p *SoundProvider) NewTTSSound(text string, maxDuration time.Duration) (*Sound, error) {
 	var err error
 	var buf bytes.Buffer
 	var normBuf bytes.Buffer
-	var soundBuf []byte
 
 	// create a new sound
 	sound := NewSound()
@@ -82,42 +72,31 @@ func (p *SoundProvider) NewTTSSound(text string, maxDuration time.Duration) (*So
 	// codegen audio
 	err = tts(text, &buf)
 	if err != nil {
-		return &sound, err
+		return nil, err
 	}
 
 	// normalize audio
 	err = normalizeAudio("f.wav", maxDuration, &buf, &normBuf)
 	if err != nil {
-		return &sound, err
+		return nil, err
 	}
 
 	// get the audio duration
 	durationBuf := buf
 	sound.Duration, err = getAudioDuration(&durationBuf)
 	if err != nil {
-		return &sound, err
+		return nil, err
 	}
 
-	soundBuf, _ = msgpack.Marshal(&sound)
+	err = p.Save(&sound)
+	if err != nil {
+		return nil, err
+	}
 
-	// persist to db
-	err = p.Store.BulkSave(map[string][]byte{
-		p.GetKey(&sound):   soundBuf,
-		p.AudioKey(&sound): normBuf.Bytes(),
-	})
+	err = p.WriteAudio(&sound, &buf)
+	if err != nil {
+		return nil, err
+	}
 
 	return &sound, err
-}
-
-func (p *SoundProvider) GetAudio(sound *Sound, w io.Writer) (err error) {
-	var b []byte
-
-	b, err = p.Store.Get(p.AudioKey(sound))
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(b)
-
-	return err
 }
