@@ -56,8 +56,7 @@ func (s *Service) Run(ctx context.Context) {
 			for _, sound := range s.SoundProvider.List() {
 				if sound.Hidden && now.Sub(sound.CreatedAt) > hiddenSoundTTL {
 					logrus.Infof("deleting \"%s\" expired hidden sounds", sound.Id)
-
-					err = DeleteSound(s.GroupProvider, s.SoundProvider, sound)
+					err = s.SoundProvider.Delete(sound)
 					if err != nil {
 						logrus.Errorf("error deleting hidden sound: %d", err)
 					}
@@ -91,7 +90,7 @@ func (s *Service) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) createSound(w http.ResponseWriter, r *http.Request) {
-	var sound Sound
+	var sound *Sound
 
 	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
@@ -172,8 +171,8 @@ func (s *Service) deleteSound(w http.ResponseWriter, r *http.Request) {
 
 	sound.Id = mux.Vars(r)["soundId"]
 
-	err := DeleteSound(s.GroupProvider, s.SoundProvider, sound)
-
+	// TODO: cleanup groups
+	err := s.SoundProvider.Delete(sound)
 	if err != nil && err != mux.ErrNotFound {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
@@ -190,7 +189,10 @@ func (s *Service) downloadSound(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "audio/mp3")
 	w.Header().Set("Cache-Control", "max-age=2592000s")
 
-	err = s.SoundProvider.GetAudio(&sound, w)
+	err = s.SoundProvider.ReadAudio(&sound, w)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 
 	if err == badger.ErrKeyNotFound {
 		w.WriteHeader(http.StatusNotFound)

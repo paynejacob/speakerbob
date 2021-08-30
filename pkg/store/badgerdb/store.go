@@ -2,7 +2,8 @@ package badgerdb
 
 import (
 	"github.com/dgraph-io/badger/v3"
-	"github.com/paynejacob/speakerbob/pkg/store"
+	"github.com/paynejacob/hotcereal/pkg/store"
+	"io"
 )
 
 type Store struct {
@@ -31,14 +32,14 @@ func (b Store) Get(key store.Key) ([]byte, error) {
 	return rval, err
 }
 
-func (b Store) List(prefix []byte, process func([]byte) error) error {
+func (b Store) List(prefix store.TypeKey, process func([]byte) error) error {
 	var item *badger.Item
 
 	return b.DB.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
 
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		for it.Seek(prefix.Bytes()); it.ValidForPrefix(prefix.Bytes()); it.Next() {
 			item = it.Item()
 
 			if err := item.Value(process); err != nil {
@@ -47,6 +48,32 @@ func (b Store) List(prefix []byte, process func([]byte) error) error {
 		}
 
 		return nil
+	})
+}
+
+func (b Store) ReadLazy(key store.FieldKey, w io.Writer) error {
+	return b.DB.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(key.Bytes())
+		if err != nil {
+			return err
+		}
+
+		return item.Value(func(val []byte) error {
+			_, err = w.Write(val)
+			return err
+		})
+	})
+}
+
+func (b Store) WriteLazy(key store.FieldKey, r io.Reader) error {
+	return b.DB.Update(func(txn *badger.Txn) error {
+		var val []byte
+		_, err := r.Read(val)
+		if err != nil {
+			return err
+		}
+
+		return txn.Set(key.Bytes(), val)
 	})
 }
 
