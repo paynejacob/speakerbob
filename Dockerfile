@@ -7,7 +7,7 @@ COPY web/speakerbob /ui
 RUN yarn build
 
 FROM golang:1.16.6-alpine3.13 as gobuild
-ARG VERSION=dev
+ARG VERSION=v100.100.100-dev
 RUN apk add --no-cache curl gcc musl-dev
 WORKDIR /speakerbob
 COPY go.* ./
@@ -16,7 +16,7 @@ RUN go mod download
 COPY cmd cmd
 COPY pkg pkg
 COPY --from=uibuild /ui/dist pkg/static/assets
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/cmd.version=$VERSION" -o speakerbob main.go
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/pkg/version.Version=$VERSION" -o speakerbob main.go
 
 FROM alpine:3.13
 RUN apk add --no-cache ffmpeg flite
