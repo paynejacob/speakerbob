@@ -8,6 +8,7 @@ import (
 	"github.com/paynejacob/hotcereal/pkg/provider"
 	"github.com/paynejacob/hotcereal/pkg/store"
 	"github.com/paynejacob/speakerbob/pkg/auth"
+	"github.com/paynejacob/speakerbob/pkg/health"
 	"github.com/paynejacob/speakerbob/pkg/play"
 	"github.com/paynejacob/speakerbob/pkg/service"
 	"github.com/paynejacob/speakerbob/pkg/sound"
@@ -66,6 +67,7 @@ func NewServer(_store store.Store, config Config) *Server {
 		Providers:     config.AuthProviders,
 	}
 	svr.serviceManager.RegisterService(authRouter, authService)
+	svr.serviceManager.RegisterService(apiRouter, health.Service{})
 
 	router.NotFoundHandler = static.Service{}
 
