@@ -78,7 +78,7 @@ spec:
         {{- end }}
         - name: config
           secret:
-              name: {{ include "speakerbob.fullname" . }}
+              secretName: {{ include "speakerbob.fullname" . }}-config
               items:
                 - key: "server.yaml"
                   path: "server.yaml"
