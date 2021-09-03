@@ -9,7 +9,6 @@ import (
 	"github.com/paynejacob/hotcereal/pkg/store"
 	"github.com/paynejacob/speakerbob/pkg/auth"
 	"github.com/paynejacob/speakerbob/pkg/health"
-	"github.com/paynejacob/speakerbob/pkg/play"
 	"github.com/paynejacob/speakerbob/pkg/service"
 	"github.com/paynejacob/speakerbob/pkg/sound"
 	"github.com/paynejacob/speakerbob/pkg/static"
@@ -49,12 +48,6 @@ func NewServer(_store store.Store, config Config) *Server {
 	// Services
 	websocketService := &websocket.Service{}
 	svr.serviceManager.RegisterService(apiRouter, websocketService)
-	svr.serviceManager.RegisterService(apiRouter, &play.Service{
-		SoundProvider:    &soundProvider,
-		GroupProvider:    &groupProvider,
-		WebsocketService: websocketService,
-		MaxSoundDuration: config.DurationLimit,
-	})
 	svr.serviceManager.RegisterService(apiRouter, &sound.Service{
 		SoundProvider:    &soundProvider,
 		GroupProvider:    &groupProvider,

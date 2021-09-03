@@ -36,7 +36,7 @@ export default class Say extends Vue {
 
     this.loading = true
 
-    await this.$api.put('/sound/say', JSON.stringify(this.message))
+    await this.$api.put('/sound/say/', JSON.stringify(this.message))
 
     this.loading = false
 

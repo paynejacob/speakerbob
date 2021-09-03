@@ -46,7 +46,7 @@ export default class CreateSound extends Vue {
     form.append(file.name, file)
 
     try {
-      const resp = await this.$api.post('/sounds/', form, { headers: { 'content-type': 'multipart/form-data' } })
+      const resp = await this.$api.post('/sound/sounds/', form, { headers: { 'content-type': 'multipart/form-data' } })
 
       this.soundId = resp.data.id
       this.fileErrors = []
@@ -62,7 +62,7 @@ export default class CreateSound extends Vue {
       return
     }
 
-    await this.$api.patch(`/api/sound/${this.soundId}/`, {
+    await this.$api.patch(`/sound/sounds/${this.soundId}/`, {
       name: this.name
     })
 

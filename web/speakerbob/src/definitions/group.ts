@@ -4,6 +4,6 @@ export class Group {
   sounds!: string[];
 
   public getPlayUrl (): string {
-    return `/play/group/${this.id}/`
+    return `/sound/groups/${this.id}/play/`
   }
 }

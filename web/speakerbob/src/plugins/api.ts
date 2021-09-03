@@ -15,11 +15,7 @@ function validateStatus (status: number): boolean {
   }
 
   // it is better to let the caller decide if this is valid or not
-  if (status === 404) {
-    return true
-  }
-
-  return false
+  return status === 404
 }
 
 const axiosConfig: AxiosRequestConfig = {

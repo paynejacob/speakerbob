@@ -3,6 +3,6 @@ export class Sound {
   name!: string;
 
   public getPlayUrl (): string {
-    return `/play/sound/${this.id}/`
+    return `/sound/sounds/${this.id}/play/`
   }
 }

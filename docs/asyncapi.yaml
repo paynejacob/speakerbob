@@ -1,0 +1,127 @@
+asyncapi: 2.0.0
+info:
+  title: Speakerbob
+  version: 100.100.100
+  description: "A distributed soundboard."
+channels:
+  /:
+    bindings:
+      ws:
+        method: GET
+    subscribe:
+      message:
+        payload:
+          oneOf:
+            - $ref: '#/component/messages/Play'
+            - $ref: '#/component/messages/UpdateSound'
+            - $ref: '#/component/messages/DeleteSound'
+            - $ref: '#/component/messages/CreateGroup'
+            - $ref: '#/component/messages/UpdateGroup'
+            - $ref: '#/component/messages/DeleteGroup'
+            - $ref: '#/component/messages/ConnectionCount'
+components:
+  schemas:
+    Sound:
+      description: Sounds represent a short audio clip that can be queued for playback.
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          readOnly: true
+          format: date-time
+        name:
+          type: string
+          pattern: ^(?!\s*){1:15}$
+        duration:
+          type: integer
+          readOnly: true
+          exclusiveMinimum: 0
+    Group:
+      description: Groups represent a series of sounds that are played in a specific order.
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          readOnly: true
+          format: date-time
+        name:
+          type: string
+          pattern: ^(?!\s*){1:15}$
+        sounds:
+          type: array
+          minLength: 2
+          items:
+            - type: string
+              description: a sound id
+        duration:
+          type: integer
+          readOnly: true
+          exclusiveMinimum: 0
+  messages:
+    Play:
+      name: play
+      schemaFormat: application/json
+      payload:
+        type: object
+        properties:
+          type:
+            type: string
+          sound:
+            $ref: '#/component/schemas/Sound'
+          scheduled:
+            type: string
+            format: date-time
+    UpdateSound:
+      name: sound
+      schemaFormat: application/json
+      payload:
+        type:
+          type: string
+        sound:
+          $ref: '#/component/schemas/Sound'
+    DeleteSound:
+      name: sound
+      schemaFormat: application/json
+      payload:
+        type:
+          type: string
+        sound:
+          $ref: '#/component/schemas/Sound'
+    CreateGroup:
+      name: group
+      schemaFormat: application/json
+      payload:
+        type:
+          type: string
+        group:
+          $ref: '#/component/schemas/Group'
+    UpdateGroup:
+      name: group
+      schemaFormat: application/json
+      payload:
+        type:
+          type: string
+        group:
+          $ref: '#/component/schemas/Group'
+    DeleteGroup:
+      name: group
+      schemaFormat: application/json
+      payload:
+        type:
+          type: string
+        group:
+          $ref: '#/component/schemas/Group'
+    UserCount:
+      name: userCount
+      schemaFormat: application/json
+      payload:
+        type:
+          type: string
+        count:
+          type: number

@@ -3,6 +3,7 @@ package sound
 import (
 	"bytes"
 	"github.com/google/uuid"
+	"github.com/paynejacob/speakerbob/pkg/service"
 	"io"
 	"strings"
 	"time"
@@ -35,13 +36,13 @@ func (p *SoundProvider) NewSound(filename string, audio io.ReadCloser, maxDurati
 
 	err = normalizeAudio(filename, maxDuration, audio, &buf)
 	if err != nil {
-		return nil, err
+		return nil, service.NotAcceptableError{SpeakerbobError: "unable to interpret audio format"}
 	}
 
 	durationBuf := buf
 	sound.Duration, err = getAudioDuration(&durationBuf)
 	if err != nil {
-		return nil, err
+		return nil, service.NotAcceptableError{SpeakerbobError: "unable to interpret audio format"}
 	}
 
 	p.mu.Lock()
