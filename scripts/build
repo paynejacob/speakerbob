@@ -10,8 +10,15 @@ popd
 
 mkdir -p dist
 
-CC=arm-linux-gnueabi-gcc GO_ENABLED=1 GOOS=linux GOARCH=arm go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/cmd.version=$VERSION" -o dist/speakerbob-$VERSION-arm64 main.go
-CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/cmd.version=$VERSION" -o dist/speakerbob-$VERSION-amd64 main.go
-CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 GOOS=windows go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/cmd.version=$VERSION" -o dist/speakerbob-$VERSION-win.exe main.go
+yq e -i '.version = strenv(CHART_VERSION)' charts/speakerbob/Chart.yaml
+yq e -i '.info.version = strenv(CHART_VERSION)' docs/asyncapi.yaml
+yq e -i '.info.version = strenv(CHART_VERSION)' docs/openapi.yaml
+
+CC=arm-linux-gnueabi-gcc GO_ENABLED=1 GOOS=linux GOARCH=arm go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/cmd.version=$VERSION" -o dist/speakerbob-"$VERSION"-arm64 main.go
+CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/cmd.version=$VERSION" -o dist/speakerbob-"$VERSION"-amd64 main.go
+CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 GOOS=windows go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/cmd.version=$VERSION" -o dist/speakerbob-"$VERSION"-win.exe main.go
 
 helm package charts/speakerbob -d dist
+
+cp docs/asyncapi.yaml dist/
+cp docs/openapi.yaml dist/
