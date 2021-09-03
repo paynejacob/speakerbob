@@ -1,37 +1,21 @@
-package play
+package sound
 
 import (
 	"context"
-	"github.com/paynejacob/speakerbob/pkg/sound"
 	"github.com/paynejacob/speakerbob/pkg/websocket"
 	"sync"
 	"time"
 )
-
-const messageType websocket.MessageType = "play"
-
-type messagePayload struct {
-	Scheduled time.Time   `json:"scheduled"`
-	Sound     sound.Sound `json:"sound"`
-}
 
 type queue struct {
 	m sync.RWMutex
 
 	playChannel chan bool
 
-	sounds []sound.Sound
+	sounds []Sound
 }
 
-func newQueue() *queue {
-	return &queue{
-		sync.RWMutex{},
-		make(chan bool, 0),
-		make([]sound.Sound, 0),
-	}
-}
-
-func (q *queue) EnqueueSounds(sounds ...sound.Sound) {
+func (q *queue) EnqueueSounds(sounds ...Sound) {
 	q.m.Lock()
 	defer q.m.Unlock()
 
@@ -46,7 +30,7 @@ func (q *queue) ConsumeQueue(ctx context.Context, ws *websocket.Service) {
 	var timer *time.Timer
 	var isEmpty bool
 	var isPlaying bool
-	var _sound sound.Sound
+	var _sound Sound
 
 	timer = time.NewTimer(0)
 
@@ -61,10 +45,11 @@ func (q *queue) ConsumeQueue(ctx context.Context, ws *websocket.Service) {
 			}
 
 			// get the next sound off the queue and play it
-			_sound, isEmpty = q.pop()
-			ws.BroadcastMessage(messageType, messagePayload{
-				Scheduled: time.Now(),
+			_sound, _ = q.pop()
+			ws.BroadcastMessage(PlayMessage{
+				Type:      websocket.PlayMessageType,
 				Sound:     _sound,
+				Scheduled: time.Now(),
 			})
 			isPlaying = true
 			timer.Reset(_sound.Duration) // set a timer for the duration of the sound
@@ -78,9 +63,10 @@ func (q *queue) ConsumeQueue(ctx context.Context, ws *websocket.Service) {
 				continue
 			}
 
-			ws.BroadcastMessage(messageType, messagePayload{
-				Scheduled: time.Now(),
+			ws.BroadcastMessage(PlayMessage{
+				Type:      websocket.PlayMessageType,
 				Sound:     _sound,
+				Scheduled: time.Now(),
 			})
 			isPlaying = true
 			timer.Reset(_sound.Duration) // set a timer for the duration of the sound
@@ -95,7 +81,7 @@ func (q *queue) empty() bool {
 	return len(q.sounds) == 0
 }
 
-func (q *queue) pop() (s sound.Sound, empty bool) {
+func (q *queue) pop() (s Sound, empty bool) {
 	empty = q.empty()
 
 	if empty {

@@ -12,12 +12,6 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-const ConnectionCountMessageType = "connection_count"
-
-type ConnectionCountMessagePayload struct {
-	Count int `json:"count"`
-}
-
 type Service struct {
 	m sync.RWMutex
 
@@ -28,18 +22,14 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/ws/", s.connect).Methods("GET")
 }
 
-func (s *Service) BroadcastMessage(t MessageType, payload interface{}) {
+func (s *Service) BroadcastMessage(msg interface{}) {
 	s.m.RLock()
-	defer s.m.RUnlock()
-
-	message := Message{
-		Type:    t,
-		Payload: payload,
-	}
 
 	for i := range s.connections {
-		s.connections[i].SendMessage(message)
+		s.connections[i].SendMessage(msg)
 	}
+
+	s.m.RUnlock()
 }
 
 func (s *Service) Run(context.Context) {}
@@ -65,7 +55,10 @@ func (s *Service) registerConnection(conn *Conn) {
 	connectionCount = len(s.connections)
 	s.m.Unlock()
 
-	s.BroadcastMessage(ConnectionCountMessageType, ConnectionCountMessagePayload{Count: connectionCount})
+	s.BroadcastMessage(ConnectionCountMessage{
+		Type:  ConnectionCountMessageType,
+		Count: connectionCount,
+	})
 }
 
 func (s *Service) unRegisterConnection(conn *Conn) {
@@ -81,5 +74,8 @@ func (s *Service) unRegisterConnection(conn *Conn) {
 	connectionCount = len(s.connections)
 	s.m.Unlock()
 
-	s.BroadcastMessage(ConnectionCountMessageType, ConnectionCountMessagePayload{Count: connectionCount})
+	s.BroadcastMessage(ConnectionCountMessage{
+		Type:  ConnectionCountMessageType,
+		Count: connectionCount,
+	})
 }

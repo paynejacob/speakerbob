@@ -1,0 +1,386 @@
+openapi: 3.0.3
+info:
+  title: "Speakerbob"
+  description: "A distributed soundboard."
+  version: 100.100.100
+servers:
+  - url: '{protocol}://{host}/api/'
+    variables:
+      host:
+        description: The hostname of your speakerbob instance.
+        default: "-"
+      protocol:
+        enum:
+          - http
+          - https
+        default: https
+paths:
+  /sound/sounds/:
+    get:
+      operationId: listSounds
+      tags:
+        - sound
+      summary: Get all sounds.
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  - $ref: '#/components/schemas/Sound'
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+    post:
+      operationId: createSound
+      tags:
+        - sound
+      summary: Create a new sound.
+      description: >
+        The audio will be normalized to an mp3 and limited to the maximum duration configured for the speakerbob instance.
+        The returned sound will be automatically deleted after 1 hour is a name is not set.  the sound will not be
+        returned in lists or searches until a name is set.
+      requestBody:
+        description: >
+          Any audio file that is under 10Mb in size.
+        content:
+          multipart/form-data:
+            schema:
+              type: string
+              format: binary
+      responses:
+        201:
+          description: The sound was successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sound'
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+        406:
+          description: The given file was not a format that could be understood by the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: The server encountered an unexpected error.
+  /sound/sounds/{id}/:
+    parameters:
+      - name: id
+        in: path
+        description: Sound ID
+        required: true
+        schema:
+          type: string
+    patch:
+      operationId: updateSound
+      tags:
+        - sound
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Sound'
+      responses:
+        202:
+          description: The sound was sucessfully updated.
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+        404:
+          description: The given id is not a valid sound id.
+        406:
+          description: The sound name is not a valid sound name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: The server encountered an unexpected error.
+    delete:
+      operationId: deleteSound
+      tags:
+        - sound
+      description: >
+        Deletes sound associated with the given id if it exists.  Any groups associated with the given sound
+        will also be deleted.
+      responses:
+        204:
+          description: The sound was sucessfully deleted if it existed.
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+        500:
+          description: The server encountered an unexpected error.
+  /sound/sounds/{id}/play/:
+    parameters:
+      - name: id
+        in: path
+        description: Sound ID
+        required: true
+        schema:
+          type: string
+    put:
+      operationId: playSound
+      description: >
+        Sounds are added to a play queue. The queue sends play messages in the order they are received.  Messages are
+        delayed by the duration of the sound before them.  This ensures clients can rejoin the playback on the sound.
+      tags:
+        - sound
+      responses:
+        202:
+          description: The sound has been added to the play queue.
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+        404:
+          description: The given id is not a valid sound id.
+  /sound/sounds/{id}/download/:
+    parameters:
+      - name: id
+        in: path
+        description: Sound ID
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: downloadSound
+      tags:
+        - sound
+      responses:
+        200:
+          description: OK
+          content:
+            audio/mp3:
+              schema:
+                type: string
+                format: binary
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+        404:
+          description: The given id is not a valid sound id.
+  /sound/groups/:
+    get:
+      operationId: listGroups
+      tags:
+        - group
+      summary: Get all groups.
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  - $ref: '#/components/schemas/Group'
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+    post:
+      operationId: createGroup
+      tags:
+        - group
+      summary: Create a new group.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        201:
+          description: The group was successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+        406:
+          description: The given group was not acceptable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: The server encountered an unexpected error.
+  /sound/groups/{id}/:
+    parameters:
+      - name: id
+        in: path
+        description: Group ID
+        required: true
+        schema:
+          type: string
+    delete:
+      operationId: deleteGroup
+      tags:
+        - group
+      responses:
+        204:
+          description: The group was sucessfully deleted if it existed.
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+        500:
+          description: The server encountered an unexpected error.
+    patch:
+      operationId: updateGroup
+      tags:
+        - group
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        202:
+          description: The group was sucessfully updated.
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+        404:
+          description: The given id is not a valid group id.
+        406:
+          description: The group name is not a valid group name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: The server encountered an unexpected error.
+  /sound/groups/{id}/play/:
+    parameters:
+      - name: id
+        in: path
+        description: Group ID
+        required: true
+        schema:
+          type: string
+    put:
+      operationId: playGroup
+      description: >
+        Groups sounds are enqueued for playback in the order they appear.
+      tags:
+        - group
+      responses:
+        202:
+          description: The group has been added to the play queue.
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+        404:
+          description: The given id is not a valid group id.
+  /sound/say/:
+    put:
+      operationId: playSpeech
+      description: >
+        The given text is synthesized to speech and stored in a temporary sound and queued for playback.
+      requestBody:
+        description: A string of text to synthesize to speech.
+        content:
+          application/json:
+            schema:
+              type: string
+              minLength: 1
+      responses:
+        202:
+          description: The text was synthesised to a sound and was queued for playback.
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+  /sound/search/:
+    description: >
+        Sound names and Group names are split on word breaks.  Queries are split on word and matched to the tokens. A
+      match is made if a search token is a case insensitive prefix of a name token.
+    get:
+      parameters:
+        - name: q
+          in: query
+          description: search query
+          required: true
+          schema:
+            type: string
+            minLength: 0
+      responses:
+        200:
+          description: A list of objects that match the given query.  If no query was given all objects are returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sounds:
+                    type: array
+                    items:
+                      - $ref: '#/components/schemas/Sound'
+                  groups:
+                    type: array
+                    items:
+                      - $ref: '#/components/schemas/Group'
+  /healthz/:
+    get:
+      responses:
+        200:
+          description: Indicates the server is online and functioning normally.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: token
+  schemas:
+    ErrorResponse:
+      description: May be returned when the server is unabled to complete the requested action.
+      type: object
+      properties:
+        code:
+          type: integer
+          description: The http response code of the error
+        message:
+          type: string
+    Sound:
+      description: Sounds represent a short audio clip that can be queued for playback.
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          readOnly: true
+          format: date-time
+        name:
+          type: string
+          pattern: ^(?!\s*){1:15}$
+        duration:
+          type: integer
+          readOnly: true
+          minimum: 1
+          maximum: 15
+    Group:
+      description: Groups represent a series of sounds that are played in a specific order.
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          readOnly: true
+          format: date-time
+        name:
+          type: string
+          pattern: ^(?!\s*){1:15}$
+        sounds:
+          type: array
+          minLength: 2
+          items:
+            - type: string
+              description: a sound id
+        duration:
+          type: integer
+          readOnly: true
+          minimum: 0
+          exclusiveMinimum: true
+security:
+  - bearerAuth: []
+
+tags:
+  - name: sound
+  - name: group

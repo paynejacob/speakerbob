@@ -39,13 +39,17 @@ export default class PlaySearch extends Vue {
   private timerId = 0
 
   created () {
-    this.$ws.RegisterMessageHook('sound.sound.create', this.refresh)
-    this.$ws.RegisterMessageHook('sound.group.create', this.refresh)
+    this.$ws.RegisterMessageHook('update_sound', this.refresh)
+    this.$ws.RegisterMessageHook('update_group', this.refresh)
+    this.$ws.RegisterMessageHook('delete_sound', this.refresh)
+    this.$ws.RegisterMessageHook('delete_group', this.refresh)
   }
 
   destroyed () {
-    this.$ws.DeRegisterMessageHook('sound.sound.create', this.refresh)
-    this.$ws.DeRegisterMessageHook('sound.group.create', this.refresh)
+    this.$ws.DeRegisterMessageHook('update_sound', this.refresh)
+    this.$ws.DeRegisterMessageHook('update_group', this.refresh)
+    this.$ws.DeRegisterMessageHook('delete_sound', this.refresh)
+    this.$ws.DeRegisterMessageHook('delete_group', this.refresh)
   }
 
   mounted () {
@@ -76,11 +80,11 @@ export default class PlaySearch extends Vue {
   }
 
   private async playSound (soundId: string) {
-    await this.$api.put(`/api/play/sound/${soundId}/`)
+    await this.$api.put(`/sound/sounds/${soundId}/play/`)
   }
 
   private async playGroup (groupId: string) {
-    await this.$api.put(`/api/api/play/group/${groupId}/`)
+    await this.$api.put(`/sound/groups/${groupId}/play/`)
   }
 }
 </script>

@@ -2,11 +2,9 @@
 
 ---
 
-Speakerbob is s a distributed sound board application.  Anyone can upload a short audio clip and play it!  The catch is the sound will play on any device with the speakerbob webpage open!  Annoy your co-workers, give yourself a theme song when you come into office, or just add sound affects to your next online gaming session with friends.  Anyone can upload anything, if a sound is played while one is already playing it will be queued to play after the current one completes. 
+Speakerbob is s a distributed sound board application.  Anyone can upload a short audio clip and play it!  The catch is the sound will play on any device with the speakerbob webpage open!  Annoy your co-workers, give yourself a theme song when you come into office, or just add sound affects to your next online gaming session with friends.
 
 ## Installation
-
-Before you get started, you will need a s3 compatible api with tag support.
 
 The simplest way to get started is with the docker container.
 
@@ -23,47 +21,9 @@ $ helm install --create-namespace -n speakerbob speakerbob speakerbob/charts/spe
 
 If you do not want to use docker or kubernetes you can download the binary for your OS from the [releases page](https://github.com/paynejacob/speakerbob/releases).
 
-## API Usage
+## API
 
-### Create a Sound
-Sounds are created in two steps:
-
-1. `POST /sound/` accepts a multipart form with a single field containing an audio file.  Make sure to include the file extension in the field name.
-2. `PATCH /sound/<id>/` Using the id returned from the last step this endpoint accepts a json payload with the `name` and `nsfw` field.
-
-Example:
-
-```http request
-POST /sound/
-Content-Type: multipart/form-data
-
---2a8ae6ad-f4ad-4d9a-a92c-6d217011fe0f
-Content-Disposition: form-data; name="sound.mp3"; filename="sound.mp3"
-Content-Type: audio/mp3
-
-<binary data>;
-```
-```http request
-PATCH /sound/<id>/
-Content-Type: application/json
-
-{"name":"fart noise","nsfw":false}
-```
-
-### Play a Sound
-To queue a sound for playback:
-
-`PUT /play/sound/<id>/`
-
-### List Sounds
-To list all sounds:
-
-`GET /sound/`
-
-### Search Sounds
-To search for sounds:
-
-`GET /sound/?q=<query>`
+Want to automate sount effects for your life? Checkout the [api docs](https://github.com/paynejacob/speakerbob/tree/master/docs) to get started.
 
 ## Contributing
 

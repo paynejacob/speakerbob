@@ -30,20 +30,20 @@ export default class Player {
   }
 
   private async playNextSound () {
-    const sound = this.queue.pop()
+    while (true) {
+      const sound = this.queue.pop()
 
-    if (sound === undefined) {
-      return
+      if (sound === undefined) {
+        return
+      }
+
+      this.audio.src = `/sound/sounds/${sound.id}/download/`
+
+      this.isPlaying = true
+
+      await this.audio.play()
+
+      this.isPlaying = false
     }
-
-    this.audio.src = `/sound/sound/${sound.id}/download/`
-
-    this.isPlaying = true
-
-    await this.audio.play()
-
-    this.isPlaying = false
-
-    await this.playNextSound()
   }
 }

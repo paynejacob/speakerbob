@@ -24,14 +24,14 @@ type Conn struct {
 	ExpiresAt time.Time
 
 	service *Service
-	send    chan Message
+	send    chan interface{}
 }
 
 func NewConn(ws *websocket.Conn, service *Service) *Conn {
-	return &Conn{ws: ws, service: service, send: make(chan Message, sendChannelSize)}
+	return &Conn{ws: ws, service: service, send: make(chan interface{}, sendChannelSize)}
 }
 
-func (c *Conn) SendMessage(msg Message) {
+func (c *Conn) SendMessage(msg interface{}) {
 	c.send <- msg
 }
 
