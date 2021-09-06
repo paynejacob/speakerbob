@@ -11,7 +11,7 @@ import (
 func init() {
 	DefaultConfiguration.providers = append(DefaultConfiguration.providers, DevAuthProvider{})
 	DefaultConfiguration.DataPath = ".speakerbob"
-	DefaultConfiguration.Host = "127.0.0.1"
+	DefaultConfiguration.Host = "localhost"
 	DefaultConfiguration.Port = 8080
 }
 
@@ -21,7 +21,7 @@ func (d DevAuthProvider) Name() string {
 	return "debug"
 }
 
-func (d DevAuthProvider) VerifyCallback(r *http.Request) (principal auth.Principal, userEmail string, err error) {
+func (d DevAuthProvider) VerifyCallback(_ *http.Request) (principal auth.Principal, userEmail string, err error) {
 	return auth.NewPrincipal(d.Name(), "1"), "u@d.co", nil
 }
 

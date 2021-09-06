@@ -53,7 +53,7 @@ func (p *TokenProvider) FromRequest(r *http.Request) *Token {
 	token = p.GetByToken(t)
 
 	// if the token does not exist return nil
-	if token.Id == "" {
+	if token == nil {
 		return nil
 	}
 
@@ -74,3 +74,5 @@ func (p *TokenProvider) VerifyRequest(r *http.Request) (*Token, bool) {
 
 	return token, time.Now().Before(token.ExpiresAt)
 }
+
+// TODO: custom encoder for TokenType

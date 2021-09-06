@@ -124,7 +124,7 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 
 	// see if the user exists and is bound to this principal
 	user = s.UserProvider.GetByPrincipals(principal)
-	if user.Id == "" {
+	if user != nil {
 		// see if this user exists for this email
 		user = s.UserProvider.GetByEmail(userEmail)
 		if user.Id == "" {
@@ -140,10 +140,10 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create new user
-	if user.Id == "" {
+	if user == nil {
 		newUser := NewUser()
 		newUser.Principals = append(newUser.Principals, principal)
-		newUser.Email = user.Email
+		newUser.Email = userEmail
 		if err = s.UserProvider.Save(&newUser); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
