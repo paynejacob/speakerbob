@@ -3,7 +3,6 @@ package sound
 import (
 	"context"
 	"encoding/json"
-	"github.com/dgraph-io/badger/v3"
 	"github.com/gorilla/mux"
 	"github.com/paynejacob/speakerbob/pkg/service"
 	"github.com/paynejacob/speakerbob/pkg/websocket"
@@ -34,7 +33,7 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 	sounds.HandleFunc("/{soundId}/", s.updateSound).Methods(http.MethodPatch)
 	sounds.HandleFunc("/{soundId}/", s.deleteSound).Methods(http.MethodDelete)
 	sounds.HandleFunc("/{soundId}/play/", s.playSound).Methods(http.MethodPut)
-	router.HandleFunc("/{soundId}/download/", s.downloadSound).Methods(http.MethodGet)
+	sounds.HandleFunc("/{soundId}/download/", s.downloadSound).Methods(http.MethodGet)
 
 	groups := r.PathPrefix("/groups").Subrouter()
 	groups.HandleFunc("/", s.listGroup).Methods(http.MethodGet)
@@ -207,25 +206,21 @@ func (s *Service) playSound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) downloadSound(w http.ResponseWriter, r *http.Request) {
-	var sound Sound
+	var sound *Sound
 	var err error
 
-	sound.Id = mux.Vars(r)["soundId"]
-
-	w.Header().Set("Content-Type", "audio/mp3")
-	w.Header().Set("Cache-Control", "max-age=1y")
-
-	err = s.SoundProvider.ReadAudio(&sound, w)
-	if err != nil {
-		service.WriteErrorResponse(w, err)
-	}
-
-	if err == badger.ErrKeyNotFound {
+	sound = s.SoundProvider.Get(mux.Vars(r)["soundId"])
+	if sound == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
-	} else if err != nil {
+	}
+
+	w.Header().Set("Content-Type", "audio/mpeg")
+	w.Header().Set("Cache-Control", "max-age=1y")
+
+	err = s.SoundProvider.ReadAudio(sound, w)
+	if err != nil {
 		service.WriteErrorResponse(w, err)
-		return
 	}
 }
 
