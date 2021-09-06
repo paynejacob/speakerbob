@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="develop" type="CompoundRunConfigurationType">
-    <toRun name="serve ui" type="js.build_tools.npm" />
     <toRun name="server" type="GoApplicationRunConfiguration" />
+    <toRun name="serve ui" type="js.build_tools.npm" />
     <method v="2" />
   </configuration>
 </component>
