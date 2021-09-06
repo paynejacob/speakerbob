@@ -6,8 +6,7 @@
 </template>
 
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
-import { Message } from '@/plugins/websocket'
+import { Vue, Component } from 'vue-property-decorator'
 
 @Component
 export default class UserCount extends Vue {
@@ -21,8 +20,8 @@ export default class UserCount extends Vue {
     this.$ws.DeRegisterMessageHook('connection_count', this.setUserCount)
   }
 
-  private async setUserCount (message: Message) {
-    this.userCount = message.payload.count
+  private async setUserCount (message: any) {
+    this.userCount = message.count
   }
 }
 </script>

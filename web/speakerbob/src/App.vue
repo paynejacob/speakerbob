@@ -30,9 +30,7 @@ import { Component, Watch } from 'vue-property-decorator'
 import ConnectionStatus from '@/components/ConnectionStatus.vue'
 import UserCount from '@/components/UserCount.vue'
 import UserMenu from '@/components/UserMenu.vue'
-import { Message } from '@/plugins/websocket'
-import router from '@/router'
-import { NavigationGuardNext, Route } from 'vue-router'
+import { Route } from 'vue-router'
 
 @Component({ components: { ConnectionStatus, UserCount, UserMenu } })
 export default class App extends Vue {
@@ -71,9 +69,9 @@ export default class App extends Vue {
     this.showOverlay = false
   }
 
-  private async onPlayMessage (message: Message) {
+  private async onPlayMessage (message: any) {
     try {
-      await this.$audioPlayer.EnqueueSound(message.payload.sound)
+      await this.$audioPlayer.EnqueueSound(message.sound)
     } catch (e) {
       if (e.name === 'NotAllowedError') {
         this.showOverlay = true

@@ -2,13 +2,8 @@ import { Vue as _Vue } from 'vue/types/vue'
 
 export class WebsocketOptions {}
 
-export type MessageHookFn = {(message: Message): Promise<void>}
+export type MessageHookFn = {(message: any): Promise<void>}
 export type ConnectionHookFn = {(connected: boolean): Promise<void>}
-
-export interface Message {
-  type: string;
-  payload: any;
-}
 
 export default class WSConnection {
   private readonly url!: string;
@@ -86,7 +81,7 @@ export default class WSConnection {
   }
 
   private async readMessage (event: MessageEvent) {
-    const message: Message = JSON.parse(event.data)
+    const message: any = JSON.parse(event.data)
 
     const hooks = this.messageHooks.get(message.type)
     if (hooks !== undefined) {
