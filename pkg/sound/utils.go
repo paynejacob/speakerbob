@@ -4,12 +4,19 @@ func DeleteSoundWithGroups(groupProvider *GroupProvider, soundProvider *SoundPro
 	var deleteGroups []*Group
 
 	for _, group := range groupProvider.List() {
-		deleteGroups = append(deleteGroups, group)
+		for _, soundId := range group.SoundIds {
+			if soundId == sound.Id {
+				deleteGroups = append(deleteGroups, group)
+				break
+			}
+		}
 	}
 
-	err = groupProvider.Delete(deleteGroups...)
-	if err != nil {
-		return err
+	if deleteGroups != nil {
+		err = groupProvider.Delete(deleteGroups...)
+		if err != nil {
+			return err
+		}
 	}
 
 	return soundProvider.Delete(sound)
