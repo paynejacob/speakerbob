@@ -17,13 +17,14 @@ type playQueue struct {
 
 func (q *playQueue) EnqueueSounds(sounds ...Sound) {
 	q.m.Lock()
-	defer q.m.Unlock()
 
 	for i := range sounds {
 		q.sounds = append(q.sounds, sounds[i])
 	}
 
 	q.playChannel <- true
+
+	q.m.Unlock()
 }
 
 func (q *playQueue) ConsumeQueue(ctx context.Context, ws *websocket.Service) {

@@ -55,7 +55,7 @@ func (s *Service) Run(ctx context.Context) {
 
 	s.playQueue = playQueue{
 		m:           sync.RWMutex{},
-		playChannel: make(chan bool, 0),
+		playChannel: make(chan bool, 3),
 		sounds:      make([]Sound, 0),
 	}
 
@@ -195,13 +195,13 @@ func (s *Service) deleteSound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) playSound(w http.ResponseWriter, r *http.Request) {
-	_sound := *s.SoundProvider.Get(mux.Vars(r)["soundId"])
-	if _sound.Id == "" {
+	_sound := s.SoundProvider.Get(mux.Vars(r)["soundId"])
+	if _sound == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	s.playQueue.EnqueueSounds(_sound)
+	s.playQueue.EnqueueSounds(*_sound)
 
 	w.WriteHeader(http.StatusAccepted)
 }
