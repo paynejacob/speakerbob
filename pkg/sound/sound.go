@@ -34,19 +34,10 @@ func (p *SoundProvider) NewSound(filename string, audio io.ReadCloser, maxDurati
 
 	sound := NewSound()
 
-	err = normalizeAudio(filename, maxDuration, audio, &buf)
+	sound.Duration, err = normalizeAudio(filename, maxDuration, audio, &buf)
 	if err != nil {
 		return nil, service.NotAcceptableError{SpeakerbobError: "unable to interpret audio format"}
 	}
-
-	durationBuf := buf
-	sound.Duration, err = getAudioDuration(&durationBuf)
-	if err != nil {
-		return nil, service.NotAcceptableError{SpeakerbobError: "unable to interpret audio format"}
-	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
 
 	err = p.Save(&sound)
 	if err != nil {
@@ -77,14 +68,7 @@ func (p *SoundProvider) NewTTSSound(text string, maxDuration time.Duration) (*So
 	}
 
 	// normalize audio
-	err = normalizeAudio("f.wav", maxDuration, &buf, &normBuf)
-	if err != nil {
-		return nil, err
-	}
-
-	// get the audio duration
-	durationBuf := buf
-	sound.Duration, err = getAudioDuration(&durationBuf)
+	sound.Duration, err = normalizeAudio("f.wav", maxDuration, &buf, &normBuf)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +78,7 @@ func (p *SoundProvider) NewTTSSound(text string, maxDuration time.Duration) (*So
 		return nil, err
 	}
 
-	err = p.WriteAudio(&sound, &buf)
+	err = p.WriteAudio(&sound, &normBuf)
 	if err != nil {
 		return nil, err
 	}

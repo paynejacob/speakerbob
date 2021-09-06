@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type queue struct {
+type playQueue struct {
 	m sync.RWMutex
 
 	playChannel chan bool
@@ -15,7 +15,7 @@ type queue struct {
 	sounds []Sound
 }
 
-func (q *queue) EnqueueSounds(sounds ...Sound) {
+func (q *playQueue) EnqueueSounds(sounds ...Sound) {
 	q.m.Lock()
 	defer q.m.Unlock()
 
@@ -26,7 +26,7 @@ func (q *queue) EnqueueSounds(sounds ...Sound) {
 	q.playChannel <- true
 }
 
-func (q *queue) ConsumeQueue(ctx context.Context, ws *websocket.Service) {
+func (q *playQueue) ConsumeQueue(ctx context.Context, ws *websocket.Service) {
 	var timer *time.Timer
 	var isEmpty bool
 	var isPlaying bool
@@ -44,7 +44,7 @@ func (q *queue) ConsumeQueue(ctx context.Context, ws *websocket.Service) {
 				continue
 			}
 
-			// get the next sound off the queue and play it
+			// get the next sound off the playQueue and play it
 			_sound, _ = q.pop()
 			ws.BroadcastMessage(PlayMessage{
 				Type:      websocket.PlayMessageType,
@@ -74,14 +74,14 @@ func (q *queue) ConsumeQueue(ctx context.Context, ws *websocket.Service) {
 	}
 }
 
-func (q *queue) empty() bool {
+func (q *playQueue) empty() bool {
 	q.m.RLock()
 	defer q.m.RUnlock()
 
 	return len(q.sounds) == 0
 }
 
-func (q *queue) pop() (s Sound, empty bool) {
+func (q *playQueue) pop() (s Sound, empty bool) {
 	empty = q.empty()
 
 	if empty {

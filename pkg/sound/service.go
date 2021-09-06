@@ -19,7 +19,7 @@ type Service struct {
 	WebsocketService *websocket.Service
 	MaxSoundDuration time.Duration
 
-	playQueue queue
+	playQueue playQueue
 }
 
 const cleanupInterval = 4 * time.Hour
@@ -53,7 +53,7 @@ func (s *Service) Run(ctx context.Context) {
 	var now time.Time
 	var ticker *time.Ticker
 
-	s.playQueue = queue{
+	s.playQueue = playQueue{
 		m:           sync.RWMutex{},
 		playChannel: make(chan bool, 0),
 		sounds:      make([]Sound, 0),
@@ -86,7 +86,18 @@ func (s *Service) Run(ctx context.Context) {
 }
 
 func (s *Service) listSound(w http.ResponseWriter, _ *http.Request) {
-	_ = json.NewEncoder(w).Encode(s.SoundProvider.List())
+	w.Header().Add("Content-Type", "application/json")
+
+	sounds := make([]*Sound, 0)
+	for _, sound := range s.SoundProvider.List() {
+		if sound.Hidden {
+			continue
+		}
+
+		sounds = append(sounds, sound)
+	}
+
+	_ = json.NewEncoder(w).Encode(sounds)
 }
 
 func (s *Service) createSound(w http.ResponseWriter, r *http.Request) {
@@ -114,8 +125,8 @@ func (s *Service) createSound(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(sound)
 	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(sound)
 }
 
 func (s *Service) updateSound(w http.ResponseWriter, r *http.Request) {
@@ -125,7 +136,7 @@ func (s *Service) updateSound(w http.ResponseWriter, r *http.Request) {
 
 	// load existing values
 	sound = s.SoundProvider.Get(mux.Vars(r)["soundId"])
-	if err != nil {
+	if sound == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -164,6 +175,10 @@ func (s *Service) deleteSound(w http.ResponseWriter, r *http.Request) {
 	var sound *Sound
 
 	sound = s.SoundProvider.Get(mux.Vars(r)["soundId"])
+	if sound == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 
 	err := DeleteSoundWithGroups(s.GroupProvider, s.SoundProvider, sound)
 	if err != nil && err != mux.ErrNotFound {

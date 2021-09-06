@@ -46,6 +46,6 @@ func WriteErrorResponse(w http.ResponseWriter, err error) {
 		break
 	}
 
-	_ = json.NewEncoder(w).Encode(resp)
 	w.WriteHeader(resp.Code)
+	_ = json.NewEncoder(w).Encode(resp)
 }

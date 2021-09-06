@@ -125,9 +125,13 @@ func (p *GroupProvider) Delete(objs ...*Group) error {
 		return err
 	}
 
+	var exists bool
 	for _, obj := range objs {
 		// ensure the fields match the stored fields
-		obj = p.Get(obj.Id)
+		obj, exists = p.cache[obj.Id]
+		if !exists {
+			continue
+		}
 
 		// cleanup lookups
 
@@ -148,17 +152,23 @@ func (p *GroupProvider) TypeKey() store.TypeKey {
 }
 
 func (p *GroupProvider) ObjectKey(o *Group) store.ObjectKey {
-	return store.ObjectKey{
+	k := store.ObjectKey{
 		TypeKey:  p.TypeKey(),
 		IdLength: len(o.Id),
 	}
+
+	k.Body += o.Id
+	return k
 }
 
 func (p *GroupProvider) FieldKey(o *Group, fieldName string) store.FieldKey {
-	return store.FieldKey{
+	k := store.FieldKey{
 		ObjectKey:   p.ObjectKey(o),
 		FieldLength: len(fieldName),
 	}
+
+	k.Body += fieldName
+	return k
 }
 
 var _ msgpack.CustomEncoder = (*Group)(nil)

@@ -127,9 +127,13 @@ func (p *SoundProvider) Delete(objs ...*Sound) error {
 		return err
 	}
 
+	var exists bool
 	for _, obj := range objs {
 		// ensure the fields match the stored fields
-		obj = p.Get(obj.Id)
+		obj, exists = p.cache[obj.Id]
+		if !exists {
+			continue
+		}
 
 		// cleanup lookups
 
@@ -158,17 +162,23 @@ func (p *SoundProvider) TypeKey() store.TypeKey {
 }
 
 func (p *SoundProvider) ObjectKey(o *Sound) store.ObjectKey {
-	return store.ObjectKey{
+	k := store.ObjectKey{
 		TypeKey:  p.TypeKey(),
 		IdLength: len(o.Id),
 	}
+
+	k.Body += o.Id
+	return k
 }
 
 func (p *SoundProvider) FieldKey(o *Sound, fieldName string) store.FieldKey {
-	return store.FieldKey{
+	k := store.FieldKey{
 		ObjectKey:   p.ObjectKey(o),
 		FieldLength: len(fieldName),
 	}
+
+	k.Body += fieldName
+	return k
 }
 
 var _ msgpack.CustomEncoder = (*Sound)(nil)

@@ -1,6 +1,7 @@
 package sound
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/tcolgate/mp3"
 	"io"
@@ -12,7 +13,11 @@ import (
 
 var specialCharacterRegexp = regexp.MustCompile(`[^a-zA-Z0-9\\s.? ]+`)
 
-func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w io.Writer) error {
+var durationRegexp = regexp.MustCompile(`Duration: (?P<h>\d+):(?P<m>\d+):(?P<s>\d+).(?P<ms>\d+)`)
+
+func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w io.Writer) (time.Duration, error) {
+	var output bytes.Buffer
+
 	cmd := exec.Command(
 		"ffmpeg",
 		"-y",
@@ -27,9 +32,30 @@ func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w i
 		"-f", "mp3",
 		"pipe:1")
 	cmd.Stdout = w
+	cmd.Stderr = &output
 	cmd.Stdin = r
 
-	return cmd.Run()
+	err := cmd.Run()
+	if err != nil {
+		return 0, err
+	}
+
+	var duration time.Duration
+	match := durationRegexp.FindSubmatch(output.Bytes())
+	if len(match) > 0 {
+		for i, name := range durationRegexp.SubexpNames() {
+			subD, _ := time.ParseDuration(string(match[i]) + name)
+
+			duration += subD
+
+			if duration > maxDuration {
+				duration = maxDuration
+				break
+			}
+		}
+	}
+
+	return duration, nil
 }
 
 func getAudioDuration(r io.Reader) (time.Duration, error) {
