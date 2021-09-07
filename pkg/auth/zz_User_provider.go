@@ -33,7 +33,7 @@ func (p *UserProvider) Initialize() error {
 
 	// load values from store
 	return p.Store.List(p.TypeKey(), func(bytes []byte) error {
-		o := User{}
+		var o User
 
 		if err := msgpack.Unmarshal(bytes, &o); err != nil {
 			return err
@@ -160,9 +160,13 @@ func (p *UserProvider) Delete(objs ...*User) error {
 		return err
 	}
 
+	var exists bool
 	for _, obj := range objs {
 		// ensure the fields match the stored fields
-		obj = p.Get(obj.Id)
+		obj, exists = p.cache[obj.Id]
+		if !exists {
+			continue
+		}
 
 		// cleanup lookups
 		delete(p.lookupEmail, obj.Email)
@@ -187,17 +191,23 @@ func (p *UserProvider) TypeKey() store.TypeKey {
 }
 
 func (p *UserProvider) ObjectKey(o *User) store.ObjectKey {
-	return store.ObjectKey{
+	k := store.ObjectKey{
 		TypeKey:  p.TypeKey(),
 		IdLength: len(o.Id),
 	}
+
+	k.Body += o.Id
+	return k
 }
 
 func (p *UserProvider) FieldKey(o *User, fieldName string) store.FieldKey {
-	return store.FieldKey{
+	k := store.FieldKey{
 		ObjectKey:   p.ObjectKey(o),
 		FieldLength: len(fieldName),
 	}
+
+	k.Body += fieldName
+	return k
 }
 
 var _ msgpack.CustomEncoder = (*User)(nil)
@@ -215,10 +225,10 @@ func (s *User) EncodeMsgpack(enc *msgpack.Encoder) error {
 
 func (s *User) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return dec.DecodeMulti(
-		s.Id,
-		s.CreatedAt,
-		s.Name,
-		s.Email,
-		s.Principals,
+		&s.Id,
+		&s.CreatedAt,
+		&s.Name,
+		&s.Email,
+		&s.Principals,
 	)
 }

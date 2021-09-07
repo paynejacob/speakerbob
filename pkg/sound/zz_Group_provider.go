@@ -29,7 +29,7 @@ func (p *GroupProvider) Initialize() error {
 
 	// load values from store
 	return p.Store.List(p.TypeKey(), func(bytes []byte) error {
-		o := Group{}
+		var o Group
 
 		if err := msgpack.Unmarshal(bytes, &o); err != nil {
 			return err
@@ -186,10 +186,10 @@ func (s *Group) EncodeMsgpack(enc *msgpack.Encoder) error {
 
 func (s *Group) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return dec.DecodeMulti(
-		s.Id,
-		s.CreatedAt,
-		s.Name,
-		s.Duration,
-		s.SoundIds,
+		&s.Id,
+		&s.CreatedAt,
+		&s.Name,
+		&s.Duration,
+		&s.SoundIds,
 	)
 }
