@@ -225,6 +225,7 @@ func (s *Service) downloadSound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) listGroup(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(s.GroupProvider.List())
 }
 
@@ -255,7 +256,7 @@ func (s *Service) createGroup(w http.ResponseWriter, r *http.Request) {
 
 	// validate sound ids
 	for i := range requestGroup.SoundIds {
-		if s.SoundProvider.Get(group.SoundIds[i]).Id != "" {
+		if s.SoundProvider.Get(requestGroup.SoundIds[i]) == nil {
 			service.WriteErrorResponse(w, service.NewNotAcceptableError("invalid sound id: "+requestGroup.SoundIds[i]))
 			return
 		}
@@ -273,13 +274,12 @@ func (s *Service) createGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	err = json.NewEncoder(w).Encode(&group)
 	if err != nil {
 		service.WriteErrorResponse(w, err)
 		return
 	}
-
-	w.WriteHeader(http.StatusCreated)
 
 	s.WebsocketService.BroadcastMessage(GroupMessage{
 		Type:  websocket.CreateGroupMessageType,
@@ -294,7 +294,7 @@ func (s *Service) updateGroup(w http.ResponseWriter, r *http.Request) {
 	var requestGroup Group
 
 	group = s.GroupProvider.Get(mux.Vars(r)["groupId"])
-	if group.Id == "" {
+	if group == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -320,7 +320,7 @@ func (s *Service) updateGroup(w http.ResponseWriter, r *http.Request) {
 
 	// validate sound ids
 	for i := range requestGroup.SoundIds {
-		if s.SoundProvider.Get(group.SoundIds[i]).Id != "" {
+		if s.SoundProvider.Get(requestGroup.SoundIds[i]) == nil {
 			service.WriteErrorResponse(w, service.NewNotAcceptableError("invalid sound id: "+requestGroup.SoundIds[i]))
 			return
 		}
@@ -361,7 +361,7 @@ func (s *Service) deleteGroup(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) playGroup(w http.ResponseWriter, r *http.Request) {
 	group := s.GroupProvider.Get(mux.Vars(r)["groupId"])
-	if group.Id == "" {
+	if group == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -378,13 +378,20 @@ func (s *Service) playGroup(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) search(w http.ResponseWriter, r *http.Request) {
 	var err error
-	var sounds []*Sound
-	var groups []*Group
+	sounds := make([]*Sound, 0)
+	groups := make([]*Group, 0)
 
 	q := r.URL.Query().Get("q")
 
-	sounds = s.SoundProvider.Search(q)
 	groups = s.GroupProvider.Search(q)
+
+	for _, sound := range s.SoundProvider.Search(q) {
+		if sound.Hidden {
+			continue
+		}
+
+		sounds = append(sounds, sound)
+	}
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
