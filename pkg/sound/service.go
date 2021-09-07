@@ -377,7 +377,6 @@ func (s *Service) playGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) search(w http.ResponseWriter, r *http.Request) {
-	var err error
 	sounds := make([]*Sound, 0)
 	groups := make([]*Group, 0)
 
@@ -393,17 +392,8 @@ func (s *Service) search(w http.ResponseWriter, r *http.Request) {
 		sounds = append(sounds, sound)
 	}
 
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(map[string]interface{}{"sounds": sounds, "groups": groups})
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"sounds": sounds, "groups": groups})
 }
 
 func (s *Service) say(w http.ResponseWriter, r *http.Request) {
