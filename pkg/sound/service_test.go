@@ -29,7 +29,7 @@ func init() {
 	playChannel = make(chan bool, 0)
 	go func() {
 		for {
-			<- playChannel
+			<-playChannel
 		}
 	}()
 
@@ -37,15 +37,15 @@ func init() {
 }
 
 func setup() {
-	soundProvider = & SoundProvider{
-		Store:       memory.New(),
+	soundProvider = &SoundProvider{
+		Store: memory.New(),
 	}
-	_= soundProvider.Initialize()
+	_ = soundProvider.Initialize()
 
 	groupProvider = &GroupProvider{
 		Store: memory.New(),
 	}
-	_= groupProvider.Initialize()
+	_ = groupProvider.Initialize()
 }
 
 func newServer() *httptest.Server {
@@ -54,7 +54,7 @@ func newServer() *httptest.Server {
 		GroupProvider:    groupProvider,
 		WebsocketService: &websocketService,
 		MaxSoundDuration: maxDuration,
-		playQueue:        playQueue{
+		playQueue: playQueue{
 			m:           sync.RWMutex{},
 			playChannel: playChannel,
 			sounds:      make([]Sound, 0),
@@ -152,7 +152,7 @@ func TestCreateSound(t *testing.T) {
 		WithMultipart().
 		WithFileBytes("foo.wav", "foo.wav", body).
 		Expect().
- 		Status(http.StatusCreated).
+		Status(http.StatusCreated).
 		JSON()
 }
 
@@ -169,7 +169,6 @@ func TestUpdateSound(t *testing.T) {
 	_ = soundProvider.Save(&sound)
 
 	body := sound
-
 
 	// invalid sound id
 	httpexpect.New(t, sut.URL).
@@ -299,7 +298,7 @@ func TestDownloadSound(t *testing.T) {
 	sut := newServer()
 	defer sut.Close()
 
-	audioContent := []byte{1,2,3}
+	audioContent := []byte{1, 2, 3}
 
 	s1 := NewSound()
 	s1.Name = "s1"
@@ -348,15 +347,15 @@ func TestListGroup(t *testing.T) {
 
 	g1 := NewGroup()
 	g1.Name = "g1"
-	g1.SoundIds = []string{s1.Id,s2.Id,s3.Id}
+	g1.SoundIds = []string{s1.Id, s2.Id, s3.Id}
 
 	g2 := NewGroup()
 	g2.Name = "g2"
-	g2.SoundIds = []string{s3.Id,s2.Id,s1.Id}
+	g2.SoundIds = []string{s3.Id, s2.Id, s1.Id}
 
 	g3 := NewGroup()
 	g3.Name = "g3"
-	g3.SoundIds = []string{s3.Id,s2.Id,s3.Id}
+	g3.SoundIds = []string{s3.Id, s2.Id, s3.Id}
 
 	// empty
 	httpexpect.New(t, sut.URL).
