@@ -3,7 +3,6 @@ package sound
 import (
 	"bytes"
 	"fmt"
-	"github.com/tcolgate/mp3"
 	"io"
 	"os/exec"
 	"regexp"
@@ -13,7 +12,7 @@ import (
 
 var specialCharacterRegexp = regexp.MustCompile(`[^a-zA-Z0-9\\s.? ]+`)
 
-var durationRegexp = regexp.MustCompile(`Duration: (?P<h>\d+):(?P<m>\d+):(?P<s>\d+).(?P<ms>\d+)`)
+var durationRegexp = regexp.MustCompile(`time=(?P<h>\d+):(?P<m>\d+):(?P<s>\d+).(?P<ms>\d+)`)
 
 func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w io.Writer) (time.Duration, error) {
 	var output bytes.Buffer
@@ -41,9 +40,14 @@ func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w i
 	}
 
 	var duration time.Duration
-	match := durationRegexp.FindSubmatch(output.Bytes())
-	if len(match) > 0 {
+	matches := durationRegexp.FindAllSubmatch(output.Bytes(), -1)
+	if matches != nil {
+		match := matches[len(matches)-1]
 		for i, name := range durationRegexp.SubexpNames() {
+			if i == 0 {
+				continue
+			}
+
 			subD, _ := time.ParseDuration(string(match[i]) + name)
 
 			duration += subD
@@ -56,27 +60,6 @@ func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w i
 	}
 
 	return duration, nil
-}
-
-func getAudioDuration(r io.Reader) (time.Duration, error) {
-	var t int64
-	var f mp3.Frame
-	var skipped int
-
-	d := mp3.NewDecoder(r)
-
-	for {
-		if err := d.Decode(&f, &skipped); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return 0, err
-		}
-
-		t = t + f.Duration().Milliseconds()
-	}
-
-	return time.Duration(t) * time.Millisecond, nil
 }
 
 func tts(text string, w io.Writer) error {

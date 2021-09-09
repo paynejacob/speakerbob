@@ -39,7 +39,9 @@ export default class PlaySearch extends Vue {
   private timerId = 0
 
   created () {
+    // TODO: do not refresh the entire dataset every time
     this.$ws.RegisterMessageHook('update_sound', this.refresh)
+    this.$ws.RegisterMessageHook('create_group', this.refresh)
     this.$ws.RegisterMessageHook('update_group', this.refresh)
     this.$ws.RegisterMessageHook('delete_sound', this.refresh)
     this.$ws.RegisterMessageHook('delete_group', this.refresh)
@@ -47,6 +49,7 @@ export default class PlaySearch extends Vue {
 
   destroyed () {
     this.$ws.DeRegisterMessageHook('update_sound', this.refresh)
+    this.$ws.DeRegisterMessageHook('create_group', this.refresh)
     this.$ws.DeRegisterMessageHook('update_group', this.refresh)
     this.$ws.DeRegisterMessageHook('delete_sound', this.refresh)
     this.$ws.DeRegisterMessageHook('delete_group', this.refresh)

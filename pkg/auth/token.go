@@ -74,5 +74,3 @@ func (p *TokenProvider) VerifyRequest(r *http.Request) (*Token, bool) {
 
 	return token, time.Now().Before(token.ExpiresAt)
 }
-
-// TODO: custom encoder for TokenType

@@ -37,7 +37,7 @@ export default class Player {
         return
       }
 
-      this.audio.src = `/sound/sounds/${sound.id}/download/`
+      this.audio.src = `/api/sound/sounds/${sound.id}/download/`
 
       this.isPlaying = true
 

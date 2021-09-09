@@ -54,7 +54,7 @@ func (s *Service) Run(ctx context.Context) {
 
 	s.playQueue = playQueue{
 		m:           sync.RWMutex{},
-		playChannel: make(chan bool, 3),
+		playChannel: make(chan bool, 0),
 		sounds:      make([]Sound, 0),
 	}
 

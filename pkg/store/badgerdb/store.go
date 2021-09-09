@@ -33,14 +33,20 @@ func (b Store) Get(key store.Key) ([]byte, error) {
 }
 
 func (b Store) List(prefix store.TypeKey, process func([]byte) error) error {
+	var err error
 	var item *badger.Item
 
-	return b.DB.View(func(txn *badger.Txn) error {
+	err = b.DB.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
 
 		for it.Seek(prefix.Bytes()); it.ValidForPrefix(prefix.Bytes()); it.Next() {
 			item = it.Item()
+
+			// ignore field keys
+			if it.Item().Key()[it.Item().KeySize()-1] != byte(store.ObjectKeySuffix) {
+				continue
+			}
 
 			if err := item.Value(process); err != nil {
 				return err
@@ -49,6 +55,8 @@ func (b Store) List(prefix store.TypeKey, process func([]byte) error) error {
 
 		return nil
 	})
+
+	return err
 }
 
 func (b Store) ReadLazy(key store.FieldKey, w io.Writer) error {
@@ -67,8 +75,7 @@ func (b Store) ReadLazy(key store.FieldKey, w io.Writer) error {
 
 func (b Store) WriteLazy(key store.FieldKey, r io.Reader) error {
 	return b.DB.Update(func(txn *badger.Txn) error {
-		var val []byte
-		_, err := r.Read(val)
+		val, err := io.ReadAll(r)
 		if err != nil {
 			return err
 		}

@@ -75,22 +75,29 @@ export default class Home extends Vue {
 
   $refs!: {
     createSoundForm: HTMLFormElement;
-    playSearch: PlaySearch;
-  }
-
-  private resetCreateSoundForm () {
-    this.$refs.createSoundForm.reset()
+    createGroupForm: HTMLFormElement;
+    sayForm: HTMLFormElement;
   }
 
   @Watch('createSoundModal')
-  private createSoundModalChange (value: boolean) {
-    if (value) {
-      return
+  private resetCreateSoundForm (value: boolean) {
+    if (!value) {
+      this.$refs.createSoundForm.reset()
     }
+  }
 
-    this.$refs.playSearch.refresh()
+  @Watch('createGroupModal')
+  private resetCreateGroupForm (value: boolean) {
+    if (!value) {
+      this.$refs.createGroupForm.reset()
+    }
+  }
 
-    this.resetCreateSoundForm()
+  @Watch('sayModal')
+  private resetSayForm (value: boolean) {
+    if (!value) {
+      this.$refs.sayForm.reset()
+    }
   }
 }
 </script>

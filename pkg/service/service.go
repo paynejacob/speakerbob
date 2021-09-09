@@ -15,12 +15,12 @@ type Manager struct {
 	services []Service
 }
 
-func (m Manager) RegisterService(router *mux.Router, service Service) {
+func (m *Manager) RegisterService(router *mux.Router, service Service) {
 	service.RegisterRoutes(router)
 	m.services = append(m.services, service)
 }
 
-func (m Manager) Run(ctx context.Context) {
+func (m *Manager) Run(ctx context.Context) {
 	wg := sync.WaitGroup{}
 
 	wg.Add(len(m.services))
