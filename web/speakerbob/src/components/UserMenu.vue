@@ -6,7 +6,11 @@
     </template>
     <v-list>
       <v-spacer />
-      <v-list-item @click="gotoLogout">
+      <v-list-item @click="goto('userpreferences')">
+        <v-list-item-title>Preferences</v-list-item-title>
+      </v-list-item>
+      <v-spacer />
+      <v-list-item @click="goto('logout')">
         <v-list-item-title>Logout</v-list-item-title>
       </v-list-item>
     </v-list>
@@ -35,8 +39,8 @@ export default class UserMenu extends Vue {
     this.user = resp.data
   }
 
-  private gotoLogout () {
-    router.push('logout')
+  private async goto (path: string) {
+    await router.push(path)
   }
 }
 </script>

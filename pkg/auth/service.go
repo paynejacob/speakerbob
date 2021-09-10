@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"github.com/paynejacob/speakerbob/pkg/service"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"time"
@@ -25,6 +26,11 @@ type Service struct {
 	Providers []Provider
 }
 
+type createTokenResponse struct {
+	Token
+	AccessToken string `json:"token"`
+}
+
 func (s *Service) RegisterRoutes(router *mux.Router) {
 	if !s.Enabled() {
 		return
@@ -39,9 +45,9 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/providers/", s.listProviders).Methods(http.MethodGet)
 	router.HandleFunc("/callback/", s.callback).Methods(http.MethodGet)
 
-	router.HandleFunc("/token/", s.listToken).Methods(http.MethodGet)
-	router.HandleFunc("/token/", s.createToken).Methods(http.MethodPost)
-	router.HandleFunc("/token/{tokenId}/", s.deleteToken).Methods(http.MethodDelete)
+	router.HandleFunc("/tokens/", s.listToken).Methods(http.MethodGet)
+	router.HandleFunc("/tokens/", s.createToken).Methods(http.MethodPost)
+	router.HandleFunc("/tokens/{tokenId}/", s.deleteToken).Methods(http.MethodDelete)
 }
 
 func (s *Service) Run(ctx context.Context) {
@@ -240,7 +246,7 @@ func (s *Service) listToken(w http.ResponseWriter, r *http.Request) {
 
 	rval := make([]*Token, 0)
 	for _, t := range s.TokenProvider.List() {
-		if t.UserId == token.UserId {
+		if t.UserId == token.UserId && t.Type == Bearer {
 			rval = append(rval, t)
 		}
 	}
@@ -251,35 +257,40 @@ func (s *Service) listToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) createToken(w http.ResponseWriter, r *http.Request) {
-	token, valid := s.TokenProvider.VerifyRequest(r)
-	if !valid {
+	var err error
+
+	var token Token
+	var requestToken Token
+	var userId string
+
+	if t, valid := s.TokenProvider.VerifyRequest(r); !valid {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
+	} else {
+		userId = t.UserId
 	}
 
-	targetToken := Token{}
-	err := json.NewDecoder(r.Body).Decode(&targetToken)
+	err = json.NewDecoder(r.Body).Decode(&requestToken)
 	if err != nil {
-		w.WriteHeader(http.StatusNotAcceptable)
+		service.WriteErrorResponse(w, service.NewNotAcceptableError("unable to parse request"))
 		return
 	}
 
-	newToken := NewToken()
-	newToken.Type = Bearer
-	newToken.UserId = token.UserId
-	newToken.Name = targetToken.Name
+	token = NewToken()
+	token.Type = Bearer
+	token.UserId = userId
+	token.Name = requestToken.Name
 
-	if s.TokenProvider.Save(&newToken) != nil {
+	if s.TokenProvider.Save(&token) != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	if json.NewEncoder(w).Encode(newToken) != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+
+	resp := createTokenResponse{token, token.Token}
+	_= json.NewEncoder(w).Encode(resp)
 }
 
 func (s *Service) deleteToken(w http.ResponseWriter, r *http.Request) {
@@ -291,17 +302,12 @@ func (s *Service) deleteToken(w http.ResponseWriter, r *http.Request) {
 
 	targetToken := s.TokenProvider.Get(mux.Vars(r)["tokenId"])
 
-	if targetToken.UserId != token.Id {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-
-	if s.TokenProvider.Delete(targetToken) != nil {
+	if targetToken.UserId == token.UserId && s.TokenProvider.Delete(targetToken) != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusAccepted)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // External Auth
