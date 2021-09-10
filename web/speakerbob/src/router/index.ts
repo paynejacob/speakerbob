@@ -23,6 +23,12 @@ const routes: Array<RouteConfig> = [
     component: () => import('@/views/Logout.vue')
   },
   {
+    path: '/userpreferences/',
+    name: 'UserPreferences',
+    meta: { disableWS: false },
+    component: () => import('@/views/UserPreferences.vue')
+  },
+  {
     path: '/permission-denied/',
     name: 'PermissionDenied',
     meta: { disableWS: true },

@@ -9,12 +9,14 @@ import WSConnection from '@/plugins/websocket'
 import wb from './registerServiceWorker'
 import router from './router'
 import API from '@/plugins/api'
+import Auth from '@/plugins/auth'
 
 Vue.config.productionTip = false
 
 Vue.use(Player)
 Vue.use(WSConnection)
 Vue.use(API)
+Vue.use(Auth)
 
 Vue.prototype.$workbox = wb
 
