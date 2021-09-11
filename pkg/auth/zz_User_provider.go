@@ -43,7 +43,6 @@ func (p *UserProvider) Initialize() error {
 		p.cache[o.Id] = &o
 
 		// write to the search graph
-		p.searchIndex.Write(graph.Tokenize(o.Name), o.Id)
 
 		// add lookups
 		p.lookupEmail[o.Email] = &o
@@ -130,7 +129,6 @@ func (p *UserProvider) Save(o *User) error {
 	p.cache[o.Id] = o
 
 	// update the search index
-	p.searchIndex.Write(graph.Tokenize(o.Name), o.Id)
 
 	// update lookups
 	p.lookupEmail[o.Email] = o
@@ -217,9 +215,9 @@ func (s *User) EncodeMsgpack(enc *msgpack.Encoder) error {
 	return enc.EncodeMulti(
 		s.Id,
 		s.CreatedAt,
-		s.Name,
 		s.Email,
 		s.Principals,
+		s.Preferences,
 	)
 }
 
@@ -227,8 +225,8 @@ func (s *User) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return dec.DecodeMulti(
 		&s.Id,
 		&s.CreatedAt,
-		&s.Name,
 		&s.Email,
 		&s.Principals,
+		&s.Preferences,
 	)
 }

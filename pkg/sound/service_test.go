@@ -156,6 +156,35 @@ func TestCreateSound(t *testing.T) {
 		JSON()
 }
 
+func TestGetSound(t *testing.T) {
+	setup()
+
+	sut := newServer()
+	defer sut.Close()
+
+	sound := NewSound()
+	sound.Name = "test"
+	sound.Hidden = false
+
+	_ = soundProvider.Save(&sound)
+
+	body := sound
+
+	// invalid sound id
+	httpexpect.New(t, sut.URL).
+		GET("/sound/sounds/foobar/").
+		WithJSON(&body).
+		Expect().
+		Status(http.StatusNotFound)
+
+	// valid
+	httpexpect.New(t, sut.URL).
+		GET(fmt.Sprintf("/sound/sounds/%s/", sound.Id)).
+		WithJSON(&body).
+		Expect().
+		Status(http.StatusOK).JSON()
+}
+
 func TestUpdateSound(t *testing.T) {
 	setup()
 

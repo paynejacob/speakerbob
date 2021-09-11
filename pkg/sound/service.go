@@ -30,6 +30,7 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 	sounds := r.PathPrefix("/sounds").Subrouter()
 	sounds.HandleFunc("/", s.listSound).Methods(http.MethodGet)
 	sounds.HandleFunc("/", s.createSound).Methods(http.MethodPost)
+	sounds.HandleFunc("/{soundId}/", s.getSound).Methods(http.MethodGet)
 	sounds.HandleFunc("/{soundId}/", s.updateSound).Methods(http.MethodPatch)
 	sounds.HandleFunc("/{soundId}/", s.deleteSound).Methods(http.MethodDelete)
 	sounds.HandleFunc("/{soundId}/play/", s.playSound).Methods(http.MethodPut)
@@ -125,6 +126,20 @@ func (s *Service) createSound(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(sound)
+}
+
+func (s *Service) getSound(w http.ResponseWriter, r *http.Request) {
+	var sound *Sound
+
+	// load existing values
+	sound = s.SoundProvider.Get(mux.Vars(r)["soundId"])
+	if sound == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(sound)
 }
 
