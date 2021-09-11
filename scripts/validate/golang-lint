@@ -13,5 +13,3 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   git --no-pager diff
   exit 1
 fi
-
-go test ./...

@@ -111,7 +111,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	// we treat the http server as our "main thread" and exit if it exits
 	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		logrus.Error("HTTP server error: %s", err.Error())
+		logrus.Errorf("HTTP server error: %s", err.Error())
 		return err
 	}
 
