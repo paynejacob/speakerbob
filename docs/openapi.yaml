@@ -74,6 +74,25 @@ paths:
         required: true
         schema:
           type: string
+    get:
+      operationId: getSound
+      tags:
+        - sound
+      description: >
+        Returns the sound associated with the given sound id.
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sound'
+        404:
+          description: The given id is not a valid sound id.
+        401:
+          description: Authorization information is missing or invalid. Only occurs if authorization is enabled.
+        500:
+          description: The server encountered an unexpected error.
     patch:
       operationId: updateSound
       tags:

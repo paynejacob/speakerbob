@@ -36,8 +36,8 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 		return
 	}
 
-	router.HandleFunc("/user/", s.getUser).Methods(http.MethodGet)
-	router.HandleFunc("/user/", s.updateUser).Methods(http.MethodPatch)
+	router.HandleFunc("/user/preferences/", s.getUserPreferences).Methods(http.MethodGet)
+	router.HandleFunc("/user/preferences/", s.updateUserPreferences).Methods(http.MethodPatch)
 
 	router.HandleFunc("/login/", s.providerRedirect).Methods(http.MethodGet)
 	router.HandleFunc("/logout/", s.logout).Methods(http.MethodGet)
@@ -184,7 +184,7 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 }
 
 // User
-func (s *Service) getUser(w http.ResponseWriter, r *http.Request) {
+func (s *Service) getUserPreferences(w http.ResponseWriter, r *http.Request) {
 	token, valid := s.TokenProvider.VerifyRequest(r)
 	if !valid {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -193,15 +193,15 @@ func (s *Service) getUser(w http.ResponseWriter, r *http.Request) {
 
 	user := s.UserProvider.Get(token.UserId)
 
-	if json.NewEncoder(w).Encode(user) != nil {
+	if json.NewEncoder(w).Encode(user.Preferences) != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
-func (s *Service) updateUser(w http.ResponseWriter, r *http.Request) {
-	var currentUser *User
-	var user User
+func (s *Service) updateUserPreferences(w http.ResponseWriter, r *http.Request) {
 	var err error
+	var user *User
+	var requestPreferences map[string]string
 
 	token, valid := s.TokenProvider.VerifyRequest(r)
 	if !valid {
@@ -209,25 +209,31 @@ func (s *Service) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentUser = s.UserProvider.Get(token.UserId)
+	user = s.UserProvider.Get(token.UserId)
 
 	// decode user request
-	err = json.NewDecoder(r.Body).Decode(&user)
+	err = json.NewDecoder(r.Body).Decode(&requestPreferences)
 	if err != nil {
 		w.WriteHeader(http.StatusNotAcceptable)
 		return
 	}
 
-	// names cannot be set to empty
-	if user.Name == "" {
-		w.WriteHeader(http.StatusNotAcceptable)
-		return
+	// if the user has no preferences use the request preferences, otherwise merge the request preferences left
+	if user.Preferences == nil {
+		user.Preferences = requestPreferences
+	} else {
+		for k, v := range requestPreferences {
+			// empty keys are deleted
+			if v == "" {
+				delete(user.Preferences, k)
+				continue
+			}
+
+			user.Preferences[k] = v
+		}
 	}
 
-	// write user changes
-	currentUser.Name = user.Name
-
-	err = s.UserProvider.Save(currentUser)
+	err = s.UserProvider.Save(user)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -290,7 +296,7 @@ func (s *Service) createToken(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	resp := createTokenResponse{token, token.Token}
-	_= json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (s *Service) deleteToken(w http.ResponseWriter, r *http.Request) {
