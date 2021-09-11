@@ -6,7 +6,7 @@
     </v-tabs>
     <v-tabs-items v-model="tab">
       <v-tab-item>
-        <h2>Profile</h2>
+        <UserForm />
       </v-tab-item>
       <v-tab-item>
         <APITokenTable />
@@ -19,9 +19,10 @@
 import Vue from 'vue'
 import { Component } from 'vue-property-decorator'
 import APITokenTable from '@/components/APITokenTable.vue'
+import UserForm from '@/components/UserForm.vue'
 
 @Component({
-  components: { APITokenTable }
+  components: { UserForm, APITokenTable }
 })
 export default class UserPreferences extends Vue {
   private tab = 0;

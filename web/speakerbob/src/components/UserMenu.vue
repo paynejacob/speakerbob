@@ -1,11 +1,11 @@
 <template>
   <v-menu v-if=!disabled offset-y>
     <template v-slot:activator="{ on }">
-      {{ user.display_name }}
       <v-icon v-on="on">fa-caret-down</v-icon>
     </template>
     <v-list>
-      <v-spacer />
+      <v-list-item>{{user.name}}</v-list-item>
+      <v-divider />
       <v-list-item @click="goto('userpreferences')">
         <v-list-item-title>Preferences</v-list-item-title>
       </v-list-item>
@@ -18,18 +18,17 @@
 </template>
 
 <script lang="ts">
-import { Vue, Component, Prop } from 'vue-property-decorator'
-import { User } from '@/definitions/user'
+import { Vue, Component } from 'vue-property-decorator'
+import { UserPreferences } from '@/definitions/userpreferences'
 import router from '@/router'
-import axios from 'axios'
 
 @Component
 export default class UserMenu extends Vue {
   public disabled = false
-  public user: User = new User();
+  public user: UserPreferences = new UserPreferences();
 
   public async created () {
-    const resp = await axios.get('/auth/user/')
+    const resp = await this.$auth.get('/user/preferences/')
 
     if (resp.status === 404) {
       this.disabled = true

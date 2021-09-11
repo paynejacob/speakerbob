@@ -2,7 +2,9 @@
   <v-app>
     <v-app-bar app dark color="primary">
       <div class="d-flex align-center">
-        <v-app-bar-title>Speakerbob</v-app-bar-title>
+          <v-toolbar-title @click="$router.push('/')">
+            Speakerbob
+          </v-toolbar-title>
       </div>
       <v-spacer/>
       <v-app-bar-nav-icon v-if="wsEnabled">
@@ -31,6 +33,8 @@ import ConnectionStatus from '@/components/ConnectionStatus.vue'
 import UserCount from '@/components/UserCount.vue'
 import UserMenu from '@/components/UserMenu.vue'
 import { Route } from 'vue-router'
+import { UserPreferences } from '@/definitions/userpreferences'
+import Cookies from 'js-cookie'
 
 @Component({ components: { ConnectionStatus, UserCount, UserMenu } })
 export default class App extends Vue {
@@ -41,6 +45,7 @@ export default class App extends Vue {
   public async created () {
     // start listening for play requests
     this.$ws.RegisterMessageHook('play', this.onPlayMessage)
+    this.$ws.RegisterConnectionHook(this.playEntrySound)
     this.$ws.Connect()
   }
 
@@ -49,7 +54,7 @@ export default class App extends Vue {
   }
 
   @Watch('$route')
-  public toggleWS (to: Route, from: Route) {
+  public toggleWS (to: Route) {
     if (to.meta !== undefined) {
       this.wsEnabled = !to.meta.disableWS
     } else {
@@ -77,6 +82,31 @@ export default class App extends Vue {
         this.showOverlay = true
       }
     }
+  }
+
+  private async playEntrySound (connected: boolean) {
+    const skipCookieName = 'skipEntrySound'
+
+    // check for a skip cookie
+    if (Cookies.get(skipCookieName)) {
+      return
+    }
+
+    // load the user's entry sound
+    const preferences: UserPreferences = (await this.$auth.get('/user/preferences/')).data
+
+    // if the user does not have an entry sound exit
+    if (!preferences.entrySoundId) {
+      return
+    }
+
+    // play the user's entry sound
+    await this.$api.put(`/sound/sounds/${preferences.entrySoundId}/play/`)
+
+    // set the skip cookie
+    const expires = new Date()
+    expires.setMinutes(expires.getMinutes() + 15)
+    Cookies.set(skipCookieName, 'true', { expires, path: '/noop' })
   }
 }
 </script>
