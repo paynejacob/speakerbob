@@ -1,34 +1,40 @@
 import { Vue as _Vue } from 'vue/types/vue'
-import axios, { AxiosRequestConfig } from 'axios'
-
+import axios from 'axios'
+import VueRouter from 'vue-router'
 export class APIOptions {}
 
-function validateStatus (status: number): boolean {
-  // any 2xx response is valid
-  if (status >= 200 && status <= 299) {
-    return true
-  }
-
-  // if we get an auth error send the user to the login page
-  if (status === 401) {
-    window.location.href = '/login'
-  }
-
-  // it is better to let the caller decide if this is valid or not
-  return status === 404
-}
-
-const axiosConfig: AxiosRequestConfig = {
-  baseURL: '/api/',
-  validateStatus,
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-}
-
 export default class API {
-  public static install (Vue: typeof _Vue, _options?: APIOptions) {
-    Vue.prototype.$api = axios.create(axiosConfig)
+  private router!: VueRouter
+
+  constructor (router: VueRouter) {
+    this.router = router
+
+    this.validateStatus = this.validateStatus.bind(this)
+  }
+
+  public install (Vue: typeof _Vue, _options?: APIOptions) {
+    Vue.prototype.$api = axios.create({
+      baseURL: '/api/',
+      validateStatus: this.validateStatus,
+      withCredentials: true,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+  }
+
+  private validateStatus (status: number): boolean {
+    // any 2xx response is valid
+    if (status >= 200 && status <= 299) {
+      return true
+    }
+
+    // if we get an auth error send the user to the login page
+    if (status === 401) {
+      this.router.push({ name: 'Login' })
+    }
+
+    // it is better to let the caller decide if this is valid or not
+    return status === 404
   }
 }

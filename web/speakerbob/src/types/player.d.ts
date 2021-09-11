@@ -2,9 +2,10 @@ import { Sound } from '@/definitions/sound'
 
 declare module 'vue/types/vue' {
   interface Vue {
-    $audioPlayer: {
-      EnqueueSound: (sound: Sound) => Promise<any>;
-      ForceEnableSound: () => {};
+    $player: {
+      EnqueueSound(sound: Sound): Promise<any>;
+      EnableSound(): void;
+      OnPlayMessage(message: any): Promise<never>;
     };
   }
 }

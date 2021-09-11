@@ -1,35 +1,51 @@
 import { Sound } from '@/definitions/sound'
 import { Vue as _Vue } from 'vue/types/vue'
-
-export class PlayerOptions {}
+import { WebsocketOptions } from '@/plugins/websocket'
 
 export default class Player {
+  private enabled = false
   private audio!: HTMLAudioElement;
   private queue: Sound[] = [];
   private isPlaying = false;
 
   public constructor () {
+    this.install = this.install.bind(this)
+    this.OnPlayMessage = this.OnPlayMessage.bind(this)
+    this.EnableSound = this.EnableSound.bind(this)
+    this.playNextSound = this.playNextSound.bind(this)
+
     this.audio = new Audio()
   }
 
-  public async EnqueueSound (sound: Sound) {
-    this.queue.push(sound)
+  public install (Vue: typeof _Vue, _options?: WebsocketOptions) {
+    Vue.prototype.$player = this
+  }
 
-    if (!this.isPlaying) {
-      await this.playNextSound()
+  public async OnPlayMessage (sound: any) {
+    if (!this.enabled) {
+      return
     }
+
+    this.queue.push(sound.sound)
+
+    await this.playNextSound()
   }
 
-  public ForceEnableSound () {
+  public async EnableSound () {
     this.audio.src = ''
-    this.audio.play()
-  }
 
-  public static install (Vue: typeof _Vue, _options?: PlayerOptions) {
-    Vue.prototype.$audioPlayer = new Player()
+    try {
+      await this.audio.play()
+    } catch {}
+
+    this.enabled = true
   }
 
   private async playNextSound () {
+    if (this.isPlaying) {
+      return
+    }
+
     while (true) {
       const sound = this.queue.pop()
 

@@ -17,7 +17,6 @@
 import Vue from 'vue'
 import { Component } from 'vue-property-decorator'
 import axios from 'axios'
-import router from '@/router'
 
 @Component({})
 export default class Logout extends Vue {
@@ -32,7 +31,7 @@ export default class Logout extends Vue {
   }
 
   private async gotoLogin () {
-    await router.push('/login')
+    await this.$router.push('/login')
   }
 }
 </script>
