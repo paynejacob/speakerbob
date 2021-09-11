@@ -14,8 +14,6 @@
 <script lang="ts">
 import Vue from 'vue'
 import { Component } from 'vue-property-decorator'
-import axios from 'axios'
-import router from '@/router'
 
 @Component({})
 export default class PermissionDenied extends Vue {}

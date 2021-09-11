@@ -17,7 +17,6 @@
 import Vue from 'vue'
 import { Component } from 'vue-property-decorator'
 import axios from 'axios'
-import router from '@/router'
 
 @Component({})
 export default class Login extends Vue {
@@ -27,7 +26,7 @@ export default class Login extends Vue {
     this.providers = await Login.getProviders()
 
     if (this.providers.length === 0) {
-      return await router.push('/')
+      return await this.$router.push('/')
     }
   }
 

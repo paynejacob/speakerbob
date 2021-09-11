@@ -20,7 +20,6 @@
 <script lang="ts">
 import { Vue, Component } from 'vue-property-decorator'
 import { UserPreferences } from '@/definitions/userpreferences'
-import router from '@/router'
 
 @Component
 export default class UserMenu extends Vue {
@@ -39,7 +38,7 @@ export default class UserMenu extends Vue {
   }
 
   private async goto (path: string) {
-    await router.push(path)
+    await this.$router.push(path)
   }
 }
 </script>
