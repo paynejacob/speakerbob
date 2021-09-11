@@ -11,6 +11,7 @@ popd
 mkdir -p dist
 
 yq e -i '.version = strenv(CHART_VERSION)' charts/speakerbob/Chart.yaml
+yq e -i '.appVersion = strenv(IMAGE_TAG)' charts/speakerbob/Chart.yaml
 yq e -i '.info.version = strenv(CHART_VERSION)' docs/asyncapi.yaml
 yq e -i '.info.version = strenv(CHART_VERSION)' docs/openapi.yaml
 

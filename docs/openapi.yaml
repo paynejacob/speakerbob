@@ -305,7 +305,7 @@ paths:
   /sound/search/:
     description: >
         Sound names and Group names are split on word breaks.  Queries are split on word and matched to the tokens. A
-      match is made if a search token is a case insensitive prefix of a name token.
+        match is made if a search token is a case insensitive prefix of a name token.
     get:
       parameters:
         - name: q
