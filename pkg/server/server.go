@@ -60,7 +60,7 @@ func NewServer(_store store.Store, config Config) *Server {
 		Providers:     config.AuthProviders,
 	}
 	svr.serviceManager.RegisterService(authRouter, authService)
-	svr.serviceManager.RegisterService(apiRouter, health.Service{})
+	svr.serviceManager.RegisterService(router, health.Service{})
 
 	router.NotFoundHandler = static.Service{}
 

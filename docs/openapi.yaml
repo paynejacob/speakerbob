@@ -331,11 +331,6 @@ paths:
                     type: array
                     items:
                       - $ref: '#/components/schemas/Group'
-  /healthz/:
-    get:
-      responses:
-        200:
-          description: Indicates the server is online and functioning normally.
 
 components:
   securitySchemes:
