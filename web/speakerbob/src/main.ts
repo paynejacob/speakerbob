@@ -10,6 +10,7 @@ import API from '@/plugins/api'
 import routes from '@/routes'
 import VueRouter from 'vue-router'
 import Auth from '@/plugins/auth'
+import Workbox from '@/plugins/workbox'
 
 Vue.config.productionTip = false
 
@@ -23,6 +24,7 @@ const wsConnection = new WSConnection()
 const player = new Player()
 const api = new API(router)
 const auth = new Auth(router)
+const workbox = new Workbox()
 
 router.beforeEach(wsConnection.NavigationGuard)
 wsConnection.RegisterMessageHook('play', player.OnPlayMessage)
@@ -32,6 +34,7 @@ Vue.use(wsConnection)
 Vue.use(player)
 Vue.use(api)
 Vue.use(auth)
+Vue.use(workbox)
 
 new Vue({
   vuetify,
