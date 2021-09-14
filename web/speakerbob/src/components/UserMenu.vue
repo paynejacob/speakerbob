@@ -10,7 +10,7 @@
         <v-list-item-title>Preferences</v-list-item-title>
       </v-list-item>
       <v-spacer />
-      <v-list-item @click="goto('logout')">
+      <v-list-item @click="logout">
         <v-list-item-title>Logout</v-list-item-title>
       </v-list-item>
     </v-list>
@@ -20,6 +20,7 @@
 <script lang="ts">
 import { Vue, Component } from 'vue-property-decorator'
 import { UserPreferences } from '@/definitions/userpreferences'
+import axios from 'axios'
 
 @Component
 export default class UserMenu extends Vue {
@@ -27,18 +28,27 @@ export default class UserMenu extends Vue {
   public user: UserPreferences = new UserPreferences();
 
   public async created () {
-    const resp = await this.$auth.get('/user/preferences/')
-
-    if (resp.status === 404) {
-      this.disabled = true
-      return
+    try {
+      const resp = await axios.get('/auth/user/preferences/')
+      this.user = resp.data
+    } catch (e) {
+      if (axios.isAxiosError(e)) {
+        if (!!e.response && (e.response.status === 404 || e.response.status === 401)) {
+          this.disabled = true
+          return
+        }
+      }
+      throw e
     }
-
-    this.user = resp.data
   }
 
   private async goto (path: string) {
     await this.$router.push(path)
+  }
+
+  private logout () {
+    this.disabled = true
+    this.goto('logout')
   }
 }
 </script>
