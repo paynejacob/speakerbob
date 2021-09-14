@@ -72,5 +72,5 @@ func (p *TokenProvider) VerifyRequest(r *http.Request) (*Token, bool) {
 		return nil, false
 	}
 
-	return token, time.Now().Before(token.ExpiresAt)
+	return token, token.ExpiresAt.IsZero() || time.Now().Before(token.ExpiresAt)
 }
