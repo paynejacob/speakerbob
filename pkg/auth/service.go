@@ -176,6 +176,7 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 		Expires:  newToken.ExpiresAt,
 		Secure:   true,
 		Path:     "/",
+		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
 
@@ -344,18 +345,21 @@ func (s *Service) listProviders(w http.ResponseWriter, _ *http.Request) {
 
 // Logout
 func (s *Service) logout(w http.ResponseWriter, r *http.Request) {
-	cookie := &http.Cookie{
-		Name:     cookieName,
-		SameSite: http.SameSiteStrictMode,
-	}
-
-	http.SetCookie(w, cookie)
-
 	token := s.TokenProvider.FromRequest(r)
 
 	if token != nil && s.TokenProvider.Delete(token) != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+
+	cookie := &http.Cookie{
+		Name:     cookieName,
+		Secure:   true,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	}
+
+	http.SetCookie(w, cookie)
 
 	w.WriteHeader(http.StatusNoContent)
 }
