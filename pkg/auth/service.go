@@ -176,7 +176,6 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 		Expires:  newToken.ExpiresAt,
 		Secure:   true,
 		Path:     "/",
-		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
 
@@ -355,7 +354,6 @@ func (s *Service) logout(w http.ResponseWriter, r *http.Request) {
 		Name:     cookieName,
 		Secure:   true,
 		Path:     "/",
-		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
 
