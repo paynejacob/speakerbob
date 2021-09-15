@@ -21,9 +21,9 @@ const router = new VueRouter({
 })
 
 const wsConnection = new WSConnection()
-const player = new Player()
 const api = new API(router)
 const auth = new Auth(router)
+const player = new Player(api.api)
 const workbox = new Workbox()
 
 router.beforeEach(wsConnection.NavigationGuard)
