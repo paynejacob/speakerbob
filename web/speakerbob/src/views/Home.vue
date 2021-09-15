@@ -52,9 +52,6 @@
         </v-card-text>
       </v-card>
     </v-dialog>
-    <v-overlay :value="showOverlay" opacity="1" color="primary" @click.native="dismissOverlay">
-      <h1>Click to Start Speakerbob</h1>
-    </v-overlay>
   </v-card>
 </template>
 
@@ -64,8 +61,6 @@ import { Component, Watch } from 'vue-property-decorator'
 import PlaySearch from '@/components/PlaySearch.vue'
 import ConnectionStatus from '@/components/ConnectionStatus.vue'
 import UserCount from '@/components/UserCount.vue'
-import Cookies from 'js-cookie'
-import { UserPreferences } from '@/definitions/userpreferences'
 
 const CreateSound = () => import('@/components/CreateSound.vue')
 const CreateGroup = () => import('@/components/CreateGroup.vue')
@@ -73,7 +68,6 @@ const Say = () => import('@/components/Say.vue')
 
 @Component({ components: { CreateGroup, ConnectionStatus, UserCount, PlaySearch, CreateSound, Say } })
 export default class Home extends Vue {
-  private showOverlay = true;
   private fab = false;
   private createSoundModal = false;
   private createGroupModal = false;
@@ -104,37 +98,6 @@ export default class Home extends Vue {
     if (!value) {
       this.$refs.sayForm.reset()
     }
-  }
-
-  private async dismissOverlay () {
-    await this.$player.EnableSound()
-    this.showOverlay = false
-    await this.playEntrySound()
-  }
-
-  private async playEntrySound () {
-    const skipCookieName = 'skipEntrySound'
-
-    // check for a skip cookie
-    if (Cookies.get(skipCookieName)) {
-      return
-    }
-
-    // load the user's entry sound
-    const preferences: UserPreferences = (await this.$auth.get('/user/preferences/')).data
-
-    // if the user does not have an entry sound exit
-    if (!preferences.entrySoundId) {
-      return
-    }
-
-    // play the user's entry sound
-    await this.$api.put(`/sound/sounds/${preferences.entrySoundId}/play/`)
-
-    // set the skip cookie
-    const expires = new Date()
-    expires.setMinutes(expires.getMinutes() + 15)
-    Cookies.set(skipCookieName, 'true', { expires, path: '/noop' })
   }
 }
 </script>
