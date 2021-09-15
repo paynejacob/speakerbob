@@ -58,11 +58,17 @@ export default class App extends Vue {
   }
 
   private async playEntrySound () {
-    const skipCookieName = 'skipEntrySound'
+    const timeoutKey = 'entrySoundTimeout'
 
-    // check for a skip cookie
-    if (Cookies.get(skipCookieName)) {
-      return
+    // check timeout
+    const timeoutRaw = localStorage.getItem(timeoutKey)
+    if (timeoutRaw) {
+      const now: Date = new Date()
+      const timeout: Date = new Date(parseInt(timeoutRaw))
+
+      if (now < timeout) {
+        return
+      }
     }
 
     // load the user's entry sound
@@ -76,10 +82,10 @@ export default class App extends Vue {
     // play the user's entry sound
     await this.$api.put(`/sound/sounds/${preferences.entrySoundId}/play/`)
 
-    // set the skip cookie
-    const expires = new Date()
-    expires.setMinutes(expires.getMinutes() + 15)
-    Cookies.set(skipCookieName, 'true', { expires, path: '/noop' })
+    // set timeout
+    const newTimeout = new Date()
+    newTimeout.setMinutes(newTimeout.getMinutes() + 15)
+    localStorage.setItem(timeoutKey, newTimeout.getTime().toString())
   }
 }
 </script>
