@@ -13,7 +13,7 @@ import (
 const (
 	authorizationHeader            = "Authorization"
 	authorizationHeaderValuePrefix = "Bearer "
-	wsTokenParameterName           = "auth"
+	wsTokenParameterName           = "token"
 	cookieName                     = "speakerbob-session"
 	sessionTTL                     = 24 * time.Hour
 	wsTokenTTL                     = 1 * time.Minute
@@ -424,6 +424,8 @@ func (s *Service) verifyRequest(r *http.Request, allowedTypes ...TokenType) (*To
 			break
 		}
 	}
+
+	logrus.Infof("token: %s %d %v", token.Token, token.Type, (token.ExpiresAt.IsZero() || time.Now().Before(token.ExpiresAt)) && allowed)
 
 	return token, (token.ExpiresAt.IsZero() || time.Now().Before(token.ExpiresAt)) && allowed
 }
