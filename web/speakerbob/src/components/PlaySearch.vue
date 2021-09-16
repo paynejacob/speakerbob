@@ -39,20 +39,21 @@ export default class PlaySearch extends Vue {
   private timerId = 0
 
   created () {
-    // TODO: do not refresh the entire dataset every time
-    this.$ws.RegisterMessageHook('update_sound', this.refresh)
-    this.$ws.RegisterMessageHook('create_group', this.refresh)
-    this.$ws.RegisterMessageHook('update_group', this.refresh)
-    this.$ws.RegisterMessageHook('delete_sound', this.refresh)
-    this.$ws.RegisterMessageHook('delete_group', this.refresh)
+    this.$ws.RegisterMessageHook('update_sound', this.onUpdateSound)
+    this.$ws.RegisterMessageHook('delete_sound', this.onDeleteSound)
+
+    this.$ws.RegisterMessageHook('create_group', this.onCreateGroup)
+    this.$ws.RegisterMessageHook('update_group', this.onUpdateGroup)
+    this.$ws.RegisterMessageHook('delete_group', this.onDeleteGroup)
   }
 
   destroyed () {
-    this.$ws.DeRegisterMessageHook('update_sound', this.refresh)
-    this.$ws.DeRegisterMessageHook('create_group', this.refresh)
-    this.$ws.DeRegisterMessageHook('update_group', this.refresh)
-    this.$ws.DeRegisterMessageHook('delete_sound', this.refresh)
-    this.$ws.DeRegisterMessageHook('delete_group', this.refresh)
+    this.$ws.DeRegisterMessageHook('update_sound', this.onUpdateSound)
+    this.$ws.DeRegisterMessageHook('delete_sound', this.onDeleteSound)
+
+    this.$ws.DeRegisterMessageHook('create_group', this.onCreateGroup)
+    this.$ws.DeRegisterMessageHook('update_group', this.onUpdateGroup)
+    this.$ws.DeRegisterMessageHook('delete_group', this.onDeleteGroup)
   }
 
   mounted () {
@@ -88,6 +89,58 @@ export default class PlaySearch extends Vue {
 
   private async playGroup (groupId: string) {
     await this.$api.put(`/sound/groups/${groupId}/play/`)
+  }
+
+  private onUpdateSound (message: any) {
+    const sound = message.sound
+
+    for (let i = 0; i < this.sounds.length - 1; i++) {
+      if (this.sounds[i].id === sound.id) {
+        this.sounds[i] = sound
+        return
+      }
+    }
+
+    this.sounds = [sound].concat(this.sounds)
+  }
+
+  private onDeleteSound (message: any) {
+    const sound = message.sound
+
+    for (let i = this.sounds.length - 1; i >= 0; i--) {
+      if (this.sounds[i].id === sound.id) {
+        this.sounds.splice(i, 1)
+      }
+    }
+  }
+
+  private onCreateGroup (message: any) {
+    const group = message.group
+
+    this.groups = [group].concat(this.groups)
+  }
+
+  private onUpdateGroup (message: any) {
+    const group = message.group
+
+    for (let i = 0; i < this.groups.length - 1; i++) {
+      if (this.groups[i].id === group.id) {
+        this.groups[i] = group
+        return
+      }
+    }
+
+    this.groups = [group].concat(this.groups)
+  }
+
+  private onDeleteGroup (message: any) {
+    const group = message.group
+
+    for (let i = this.groups.length - 1; i >= 0; i--) {
+      if (this.groups[i].id === group.id) {
+        this.groups.splice(i, 1)
+      }
+    }
   }
 }
 </script>
