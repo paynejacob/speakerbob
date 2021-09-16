@@ -13,6 +13,7 @@ const (
 	Invalid TokenType = iota
 	Session
 	Bearer
+	Websocket
 )
 
 //go:generate go run github.com/paynejacob/hotcereal providergen github.com/paynejacob/speakerbob/pkg/auth.Token
@@ -41,13 +42,13 @@ func (p *TokenProvider) FromRequest(r *http.Request) *Token {
 	var expectedType TokenType
 	var cookie *http.Cookie
 
-	cookie, _ = r.Cookie(cookieName)
-	if cookie != nil {
+	if cookie, _ = r.Cookie(cookieName); cookie != nil {
 		t = cookie.Value
 		expectedType = Session
-	} else {
-		t = strings.TrimPrefix(r.Header.Get(authorizationHeader), authorizationHeaderValuePrefix)
+	} else if t = strings.TrimPrefix(r.Header.Get(authorizationHeader), authorizationHeaderValuePrefix); t != "" {
 		expectedType = Bearer
+	} else if t = r.URL.Query().Get(wsTokenParameterName); t != "" {
+		expectedType = Websocket
 	}
 
 	token = p.GetByToken(t)
@@ -63,14 +64,4 @@ func (p *TokenProvider) FromRequest(r *http.Request) *Token {
 	}
 
 	return token
-}
-
-func (p *TokenProvider) VerifyRequest(r *http.Request) (*Token, bool) {
-	token := p.FromRequest(r)
-
-	if token == nil {
-		return nil, false
-	}
-
-	return token, token.ExpiresAt.IsZero() || time.Now().Before(token.ExpiresAt)
 }

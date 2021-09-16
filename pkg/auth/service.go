@@ -13,8 +13,10 @@ import (
 const (
 	authorizationHeader            = "Authorization"
 	authorizationHeaderValuePrefix = "Bearer "
+	wsTokenParameterName           = "auth"
 	cookieName                     = "speakerbob-session"
 	sessionTTL                     = 24 * time.Hour
+	wsTokenTTL                     = 1 * time.Minute
 	cleanupInterval                = 1 * time.Hour
 )
 
@@ -46,6 +48,7 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/callback/", s.callback).Methods(http.MethodGet)
 
 	router.HandleFunc("/tokens/", s.listToken).Methods(http.MethodGet)
+	router.HandleFunc("/tokens/ws/", s.createWSToken).Methods(http.MethodGet)
 	router.HandleFunc("/tokens/", s.createToken).Methods(http.MethodPost)
 	router.HandleFunc("/tokens/{tokenId}/", s.deleteToken).Methods(http.MethodDelete)
 }
@@ -92,13 +95,22 @@ func (s *Service) Handler(h http.Handler) http.Handler {
 		return h
 	}
 
-	return &Handler{h: h, tokenProvider: s.TokenProvider}
+	return &Handler{h: h, AuthService: s}
 }
 
 func (s *Service) Enabled() bool {
 	return len(s.Providers) > 0
 }
 
+func (s *Service) VerifyRequest(r *http.Request) (*Token, bool) {
+	return s.verifyRequest(r, Bearer, Session)
+}
+
+func (s *Service) VerifyWebsocket(r *http.Request) (*Token, bool) {
+	return s.verifyRequest(r, Bearer, Session, Websocket)
+}
+
+// Callback
 func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 	var user *User
 	var provider Provider
@@ -176,6 +188,7 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 		Expires:  newToken.ExpiresAt,
 		Secure:   true,
 		Path:     "/",
+		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
 
@@ -185,7 +198,7 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 
 // User
 func (s *Service) getUserPreferences(w http.ResponseWriter, r *http.Request) {
-	token, valid := s.TokenProvider.VerifyRequest(r)
+	token, valid := s.VerifyRequest(r)
 	if !valid {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -203,7 +216,7 @@ func (s *Service) updateUserPreferences(w http.ResponseWriter, r *http.Request) 
 	var user *User
 	var requestPreferences map[string]string
 
-	token, valid := s.TokenProvider.VerifyRequest(r)
+	token, valid := s.VerifyRequest(r)
 	if !valid {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -244,7 +257,7 @@ func (s *Service) updateUserPreferences(w http.ResponseWriter, r *http.Request) 
 
 // Token
 func (s *Service) listToken(w http.ResponseWriter, r *http.Request) {
-	token, valid := s.TokenProvider.VerifyRequest(r)
+	token, valid := s.VerifyRequest(r)
 	if !valid {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -262,6 +275,34 @@ func (s *Service) listToken(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Service) createWSToken(w http.ResponseWriter, r *http.Request) {
+	var token Token
+	var userId string
+
+	if t, valid := s.VerifyRequest(r); !valid {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	} else {
+		userId = t.UserId
+	}
+
+	token = NewToken()
+	token.Type = Websocket
+	token.UserId = userId
+	token.ExpiresAt = time.Now().Add(wsTokenTTL)
+
+	if s.TokenProvider.Save(&token) != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	resp := createTokenResponse{token, token.Token}
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
 func (s *Service) createToken(w http.ResponseWriter, r *http.Request) {
 	var err error
 
@@ -269,7 +310,7 @@ func (s *Service) createToken(w http.ResponseWriter, r *http.Request) {
 	var requestToken Token
 	var userId string
 
-	if t, valid := s.TokenProvider.VerifyRequest(r); !valid {
+	if t, valid := s.VerifyRequest(r); !valid {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	} else {
@@ -300,7 +341,7 @@ func (s *Service) createToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) deleteToken(w http.ResponseWriter, r *http.Request) {
-	token, valid := s.TokenProvider.VerifyRequest(r)
+	token, valid := s.VerifyRequest(r)
 	if !valid {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -354,10 +395,35 @@ func (s *Service) logout(w http.ResponseWriter, r *http.Request) {
 		Name:     cookieName,
 		Secure:   true,
 		Path:     "/",
+		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	}
 
 	http.SetCookie(w, cookie)
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Utils
+func (s *Service) verifyRequest(r *http.Request, allowedTypes ...TokenType) (*Token, bool) {
+	if !s.Enabled() {
+		return nil, true
+	}
+
+	token := s.TokenProvider.FromRequest(r)
+
+	if token == nil {
+		return nil, false
+	}
+
+	var allowed bool
+	for i := 0; i < len(allowedTypes); i++ {
+		allowed = token.Type == allowedTypes[i]
+
+		if allowed {
+			break
+		}
+	}
+
+	return token, (token.ExpiresAt.IsZero() || time.Now().Before(token.ExpiresAt)) && allowed
 }

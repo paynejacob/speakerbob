@@ -27,7 +27,7 @@ module.exports = {
   devServer: {
     disableHostCheck: true,
     proxy: {
-      '/api': {
+      '/ws/': {
         target: 'http://127.0.0.1:8080',
         ws: true,
         changeOrigin: false,
@@ -35,8 +35,19 @@ module.exports = {
           request.setHeader('origin', 'http://127.0.0.1:8080')
         }
       },
+      '/api': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: false,
+        onProxyReq: function (request) {
+          request.setHeader('origin', 'http://127.0.0.1:8080')
+        }
+      },
       '/auth': {
-        target: 'http://127.0.0.1:8080'
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: false,
+        onProxyReq: function (request) {
+          request.setHeader('origin', 'http://127.0.0.1:8080')
+        }
       },
     }
   }

@@ -46,20 +46,20 @@ func NewServer(_store store.Store, config Config) *Server {
 	apiRouter := router.PathPrefix("/api").Subrouter()
 
 	// Services
-	websocketService := &websocket.Service{}
-	svr.serviceManager.RegisterService(apiRouter, websocketService)
-	svr.serviceManager.RegisterService(apiRouter, &sound.Service{
-		SoundProvider:    &soundProvider,
-		GroupProvider:    &groupProvider,
-		WebsocketService: websocketService,
-		MaxSoundDuration: config.DurationLimit,
-	})
 	authService := &auth.Service{
 		TokenProvider: &tokenProvider,
 		UserProvider:  &userProvider,
 		Providers:     config.AuthProviders,
 	}
 	svr.serviceManager.RegisterService(authRouter, authService)
+	websocketService := &websocket.Service{AuthService: authService}
+	svr.serviceManager.RegisterService(router, websocketService)
+	svr.serviceManager.RegisterService(apiRouter, &sound.Service{
+		SoundProvider:    &soundProvider,
+		GroupProvider:    &groupProvider,
+		WebsocketService: websocketService,
+		MaxSoundDuration: config.DurationLimit,
+	})
 	svr.serviceManager.RegisterService(router, health.Service{})
 
 	router.NotFoundHandler = static.Service{}
