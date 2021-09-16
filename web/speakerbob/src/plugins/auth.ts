@@ -1,19 +1,18 @@
 import { Vue as _Vue } from 'vue/types/vue'
-import axios from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import VueRouter from 'vue-router'
 export class APIOptions {}
 
 export default class Auth {
   private router!: VueRouter
+  public readonly api!: AxiosInstance
 
   constructor (router: VueRouter) {
     this.router = router
 
     this.validateStatus = this.validateStatus.bind(this)
-  }
 
-  public install (Vue: typeof _Vue, _options?: APIOptions) {
-    Vue.prototype.$auth = axios.create({
+    this.api = axios.create({
       baseURL: '/auth/',
       validateStatus: this.validateStatus,
       withCredentials: true,
@@ -21,6 +20,10 @@ export default class Auth {
         'Content-Type': 'application/json'
       }
     })
+  }
+
+  public install (Vue: typeof _Vue, _options?: APIOptions) {
+    Vue.prototype.$auth = this.api
   }
 
   private validateStatus (status: number): boolean {

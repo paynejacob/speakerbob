@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/paynejacob/speakerbob/pkg/auth"
 	"net/http"
 	"sync"
 )
@@ -13,8 +14,9 @@ var upgrader = websocket.Upgrader{
 }
 
 type Service struct {
-	m sync.RWMutex
+	AuthService *auth.Service
 
+	m           sync.RWMutex
 	connections []*Conn
 }
 
@@ -35,6 +37,11 @@ func (s *Service) BroadcastMessage(msg interface{}) {
 func (s *Service) Run(context.Context) {}
 
 func (s *Service) connect(w http.ResponseWriter, r *http.Request) {
+	if _, valid := s.AuthService.VerifyWebsocket(r); !valid {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return

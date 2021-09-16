@@ -1,5 +1,7 @@
 import { Vue as _Vue } from 'vue/types/vue'
 import VueRouter, { NavigationGuardNext, Route } from 'vue-router'
+import { AxiosInstance } from 'axios'
+import { Token } from '@/definitions/token'
 
 export class WebsocketOptions {
   router!: VueRouter
@@ -9,8 +11,8 @@ export type MessageHookFn = {(message: any): Promise<void>}
 export type ConnectionHookFn = {(connected: boolean): Promise<void>}
 
 export default class WSConnection {
-  private url!: string;
   private connection!: WebSocket;
+  private auth!: AxiosInstance
 
   private messageHooks!: Map<string, MessageHookFn[]>
   private connectionHooks: ConnectionHookFn[] = []
@@ -18,7 +20,7 @@ export default class WSConnection {
   private stopped = true
   private connected = false
 
-  constructor () {
+  constructor (authAPI: AxiosInstance) {
     this.install = this.install.bind(this)
     this.RegisterMessageHook = this.RegisterMessageHook.bind(this)
     this.DeRegisterMessageHook = this.DeRegisterMessageHook.bind(this)
@@ -30,8 +32,7 @@ export default class WSConnection {
     this.connectionClose = this.connectionClose.bind(this)
     this.readMessage = this.readMessage.bind(this)
 
-    const proto = (window.location.protocol === 'https:') ? 'wss' : 'ws'
-    this.url = `${proto}://${window.location.hostname}:${window.location.port}/api/ws/`
+    this.auth = authAPI
     this.messageHooks = new Map<string, MessageHookFn[]>()
   }
 
@@ -67,14 +68,18 @@ export default class WSConnection {
     }
   }
 
-  public Connect () {
+  public async Connect () {
     if (this.connected) {
       return
     }
 
+    const token: Token = (await this.auth.get('/tokens/ws/')).data
+    const proto = (window.location.protocol === 'https:') ? 'wss' : 'ws'
+    const url = `${proto}://${window.location.hostname}:${window.location.port}/ws/?token=${token.token}`
+
     this.stopped = false
 
-    this.connection = new WebSocket(this.url)
+    this.connection = new WebSocket(url)
 
     this.connection.onopen = () => this.connectionOpen()
     this.connection.onclose = () => this.connectionClose()

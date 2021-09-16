@@ -20,11 +20,11 @@ const router = new VueRouter({
   routes: routes
 })
 
-const wsConnection = new WSConnection()
+const workbox = new Workbox()
 const api = new API(router)
 const auth = new Auth(router)
 const player = new Player(api.api)
-const workbox = new Workbox()
+const wsConnection = new WSConnection(auth.api)
 
 router.beforeEach(wsConnection.NavigationGuard)
 wsConnection.RegisterMessageHook('play', player.OnPlayMessage)
