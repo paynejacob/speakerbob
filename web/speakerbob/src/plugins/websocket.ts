@@ -5,7 +5,7 @@ export class WebsocketOptions {
   router!: VueRouter
 }
 
-export type MessageHookFn = {(message: any): Promise<void>}
+export type MessageHookFn = {(message: any): Promise<void> | void}
 export type ConnectionHookFn = {(connected: boolean): Promise<void>}
 
 export default class WSConnection {
