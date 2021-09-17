@@ -354,21 +354,31 @@ func (s *Service) updateGroup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 
 	s.WebsocketService.BroadcastMessage(GroupMessage{
-		Type:  websocket.CreateGroupMessageType,
+		Type:  websocket.UpdateGroupMessageType,
 		Group: group,
 	})
 }
 
 func (s *Service) deleteGroup(w http.ResponseWriter, r *http.Request) {
-	var group Group
+	var err error
+	var group *Group
 
-	group.Id = mux.Vars(r)["groupId"]
+	group = s.GroupProvider.Get(mux.Vars(r)["groupId"])
 
-	err := s.GroupProvider.Delete(&group)
+	if group != nil {
+		err = s.GroupProvider.Delete(group)
+	}
 
 	if err != nil && err != mux.ErrNotFound {
 		service.WriteErrorResponse(w, err)
 		return
+	}
+
+	if group != nil {
+		s.WebsocketService.BroadcastMessage(GroupMessage{
+			Type:  websocket.DeleteGroupMessageType,
+			Group: group,
+		})
 	}
 
 	w.WriteHeader(http.StatusNoContent)
