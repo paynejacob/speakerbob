@@ -1,6 +1,6 @@
 {
   "name": "Speakerbob",
-  "short_name": "sb",
+  "short_name": "Speakerbob",
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#da532c",
