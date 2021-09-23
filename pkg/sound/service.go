@@ -231,7 +231,7 @@ func (s *Service) downloadSound(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "audio/mpeg")
-	w.Header().Set("Cache-Control", "max-age=1y")
+	w.Header().Set("Cache-Control", "max-age=31536000")
 
 	err = s.SoundProvider.ReadAudio(sound, w)
 	if err != nil {
