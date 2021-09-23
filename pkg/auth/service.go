@@ -425,7 +425,5 @@ func (s *Service) verifyRequest(r *http.Request, allowedTypes ...TokenType) (*To
 		}
 	}
 
-	logrus.Infof("token: %s %d %v", token.Token, token.Type, (token.ExpiresAt.IsZero() || time.Now().Before(token.ExpiresAt)) && allowed)
-
 	return token, (token.ExpiresAt.IsZero() || time.Now().Before(token.ExpiresAt)) && allowed
 }
