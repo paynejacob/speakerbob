@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -41,12 +42,14 @@ func (g Provider) VerifyCallback(r *http.Request) (principal auth.Principal, use
 	var orgs []string
 	var allowed bool
 
+	logrus.Debug("[github] exchanging callback code for token")
 	token, err := getGithubToken(g.ClientId, g.ClientSecret, r.URL.Query().Get("code"))
 	if err != nil {
 		logrus.Errorf("error getting github token: %v", err)
 		return
 	}
 
+	logrus.Debug("[github] requesting user info for callback")
 	userId, userEmail, orgs, err = getGithubUserInfo(token)
 	if err != nil {
 		logrus.Errorf("error getting github user info: %v", err)
@@ -55,16 +58,19 @@ func (g Provider) VerifyCallback(r *http.Request) (principal auth.Principal, use
 
 	principal = auth.NewPrincipal(g.Name(), userId)
 
+	logrus.Debugf("[github] checking github orgs for user: %s", userId)
 	for _, org := range orgs {
 		if g.OrganizationPermissionMap[org] {
 			allowed = true
 			break
 		}
 	}
+	logrus.Debugf("[github] user allowed based on org access? %s => %v", userId, allowed)
 
 	if !allowed {
 		allowed = g.EmailPermissionMap[userEmail]
 	}
+	logrus.Debugf("[github] user allowed based on email access? %s => %v", userId, allowed)
 
 	if !allowed {
 		err = auth.AccessDenied{}
@@ -176,7 +182,7 @@ func getGithubUserInfo(ghToken string) (userId string, userEmail string, orgs []
 
 	for _, email := range emails {
 		if email.Primary {
-			userEmail = email.Email
+			userEmail = strings.ToLower(email.Email)
 			break
 		}
 	}

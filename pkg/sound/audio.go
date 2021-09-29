@@ -3,6 +3,7 @@ package sound
 import (
 	"bytes"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"io"
 	"os/exec"
 	"regexp"
@@ -57,6 +58,10 @@ func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w i
 				break
 			}
 		}
+	}
+
+	if duration == 0 {
+		logrus.Debugf("failed to get duration for %s, output: %s", filename, output.String())
 	}
 
 	return duration, nil

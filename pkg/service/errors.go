@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"github.com/sirupsen/logrus"
 	"net/http"
 )
 
@@ -44,6 +45,8 @@ func WriteErrorResponse(w http.ResponseWriter, err error) {
 		resp.Code = http.StatusNotAcceptable
 		resp.Message = err.Error()
 		break
+	default:
+		logrus.Debugf("[errors.WriteErrorResponse] %v", err)
 	}
 
 	w.WriteHeader(resp.Code)
