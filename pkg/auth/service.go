@@ -130,6 +130,7 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// verify request
+	logrus.Debug("[auth.callback] verifying callback")
 	principal, userEmail, err := provider.VerifyCallback(r)
 	if err != nil {
 		if _, ok := err.(AccessDenied); ok {
@@ -142,13 +143,15 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 
 	// see if the user exists and is bound to this principal
 	user = s.UserProvider.GetByPrincipals(principal)
-	if user != nil {
+	if user == nil {
+		logrus.Debug("[auth.callback] user matching principal not found")
 		// see if this user exists for this email
 		user = s.UserProvider.GetByEmail(userEmail)
-		if user.Id == "" {
+		if user != nil {
 			// if we find the user by their email, bind the principal
 			user.Principals = append(user.Principals, principal)
 			if err = s.UserProvider.Save(user); err != nil {
+				logrus.Errorf("[auth.callback] failed to update user: %v", err)
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -159,10 +162,12 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 
 	// create new user
 	if user == nil {
+		logrus.Debug("[auth.callback] user does not exist")
 		newUser := NewUser()
 		newUser.Principals = append(newUser.Principals, principal)
 		newUser.Email = userEmail
 		if err = s.UserProvider.Save(&newUser); err != nil {
+			logrus.Errorf("[auth.callback] failed to save new user: %v", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -177,6 +182,7 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 	newToken.UserId = user.Id
 	newToken.ExpiresAt = time.Now().Add(sessionTTL)
 	if err = s.TokenProvider.Save(&newToken); err != nil {
+		logrus.Errorf("[auth.callback] failed to save new token: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -206,7 +212,8 @@ func (s *Service) getUserPreferences(w http.ResponseWriter, r *http.Request) {
 
 	user := s.UserProvider.Get(token.UserId)
 
-	if json.NewEncoder(w).Encode(user.Preferences) != nil {
+	if err := json.NewEncoder(w).Encode(user.Preferences); err != nil {
+		logrus.Errorf("[auth.getUserPreferences] failed to parse user preferences: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
@@ -248,6 +255,7 @@ func (s *Service) updateUserPreferences(w http.ResponseWriter, r *http.Request) 
 
 	err = s.UserProvider.Save(user)
 	if err != nil {
+		logrus.Errorf("[auth.updateUserPreferences] failed to save user preferences: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -270,7 +278,8 @@ func (s *Service) listToken(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if json.NewEncoder(w).Encode(rval) != nil {
+	if err := json.NewEncoder(w).Encode(rval); err != nil {
+		logrus.Errorf("[auth.listToken] failed to encode token list: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
@@ -291,7 +300,8 @@ func (s *Service) createWSToken(w http.ResponseWriter, r *http.Request) {
 	token.UserId = userId
 	token.ExpiresAt = time.Now().Add(wsTokenTTL)
 
-	if s.TokenProvider.Save(&token) != nil {
+	if err := s.TokenProvider.Save(&token); err != nil {
+		logrus.Errorf("[auth.createWSToken] failed to save token: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -328,7 +338,8 @@ func (s *Service) createToken(w http.ResponseWriter, r *http.Request) {
 	token.UserId = userId
 	token.Name = requestToken.Name
 
-	if s.TokenProvider.Save(&token) != nil {
+	if err := s.TokenProvider.Save(&token); err != nil {
+		logrus.Errorf("[auth.createToken] failed to save token: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -349,9 +360,12 @@ func (s *Service) deleteToken(w http.ResponseWriter, r *http.Request) {
 
 	targetToken := s.TokenProvider.Get(mux.Vars(r)["tokenId"])
 
-	if targetToken.UserId == token.UserId && s.TokenProvider.Delete(targetToken) != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	if targetToken.UserId == token.UserId {
+		if err := s.TokenProvider.Delete(targetToken); err != nil {
+			logrus.Errorf("[auth.deleteToken] failed to delete token: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -367,7 +381,6 @@ func (s *Service) providerRedirect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNotAcceptable)
-
 }
 
 func (s *Service) listProviders(w http.ResponseWriter, _ *http.Request) {
@@ -378,17 +391,18 @@ func (s *Service) listProviders(w http.ResponseWriter, _ *http.Request) {
 		result = append(result, provider.Name())
 	}
 
-	if json.NewEncoder(w).Encode(result) != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 // Logout
 func (s *Service) logout(w http.ResponseWriter, r *http.Request) {
 	token := s.TokenProvider.FromRequest(r)
 
-	if token != nil && s.TokenProvider.Delete(token) != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	if token != nil {
+		if err := s.TokenProvider.Delete(token); err != nil {
+			logrus.Errorf("[auth.logout] failed to delete token: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 	}
 
 	cookie := &http.Cookie{
