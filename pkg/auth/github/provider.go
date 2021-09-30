@@ -70,7 +70,7 @@ func (g Provider) VerifyCallback(r *http.Request) (principal auth.Principal, use
 	if !allowed {
 		allowed = g.EmailPermissionMap[userEmail]
 	}
-	logrus.Debugf("[github] user allowed based on email access? %s => %v", userId, allowed)
+	logrus.Debugf("[github] user allowed based on email access? %s [%s] => %v", userId, userEmail, allowed)
 
 	if !allowed {
 		err = auth.AccessDenied{}
