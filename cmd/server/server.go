@@ -35,6 +35,13 @@ func Server(*cobra.Command, []string) {
 		logrus.Fatal(err)
 	}
 
+	// set log level
+	level, err := logrus.ParseLevel(config.LogLevel)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	logrus.SetLevel(level)
+
 	// setup the store
 	badgerdbOptions := badger.DefaultOptions(config.DataPath)
 	badgerdbOptions.Logger = logrus.StandardLogger()

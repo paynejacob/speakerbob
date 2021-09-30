@@ -9,6 +9,8 @@ import (
 )
 
 type Configuration struct {
+	LogLevel string `yaml:"log_level"`
+
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
 	DataPath string `yaml:"data_path"`
@@ -23,6 +25,7 @@ type Configuration struct {
 }
 
 var DefaultConfiguration = Configuration{
+	LogLevel:      "info",
 	Host:          "0.0.0.0",
 	Port:          80,
 	DataPath:      "/etc/speakerbob/data",
