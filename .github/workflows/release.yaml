@@ -1,4 +1,4 @@
-name: push image
+name: release
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
       - v*
 
 jobs:
-  build-assets:
-    name: build-assets
+  release:
+    name: release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -25,6 +25,7 @@ jobs:
       - run: scripts/build
       - run: docker build --build-arg VERSION=$VERSION -t $IMAGE_NAME:$VERSION .
       - run: docker push $IMAGE_NAME:$VERSION
+      - run: curl -s -u ${{ secrets.CHARTS_CREDENTIALS }} --data-binary @dist/speakerbob-$CHART_VERSION.tar.gz https://charts.jacobapayne.com/api/charts
       - uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         env:
