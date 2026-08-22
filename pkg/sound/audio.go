@@ -3,12 +3,13 @@ package sound
 import (
 	"bytes"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"io"
+	"os"
 	"os/exec"
 	"regexp"
-	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 var specialCharacterRegexp = regexp.MustCompile(`[^a-zA-Z0-9\\s.? ]+`)
@@ -18,13 +19,30 @@ var durationRegexp = regexp.MustCompile(`time=(?P<h>\d+):(?P<m>\d+):(?P<s>\d+).(
 func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w io.Writer) (time.Duration, error) {
 	var output bytes.Buffer
 
+	// Containers such as MP4/M4A store their index (the moov atom) anywhere in
+	// the file and require a seekable input to demux, which a pipe can't
+	// provide. Writing the upload to a temp file first fixes that, and also
+	// lets ffmpeg auto-probe the real format instead of trusting a format
+	// guessed from the client-supplied filename (which was previously derived
+	// with strings.Split(filename, ".")[1] - wrong for any filename containing
+	// more than one "." before its extension, e.g. "foo.mp3cut.net.mp3").
+	tmp, err := os.CreateTemp("", "speakerbob-upload-*")
+	if err != nil {
+		return 0, err
+	}
+	defer os.Remove(tmp.Name())
+	defer tmp.Close()
+
+	if _, err := io.Copy(tmp, r); err != nil {
+		return 0, err
+	}
+
 	cmd := exec.Command(
 		"ffmpeg",
 		"-y",
 		"-hide_banner",
 		"-loglevel", "info",
-		"-f", strings.Split(filename, ".")[1],
-		"-i", "pipe:0",
+		"-i", tmp.Name(),
 		"-ss", "0",
 		"-t", fmt.Sprintf("%.0f", maxDuration.Seconds()),
 		"-c:a", "libmp3lame",
@@ -33,9 +51,8 @@ func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w i
 		"pipe:1")
 	cmd.Stdout = w
 	cmd.Stderr = &output
-	cmd.Stdin = r
 
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		return 0, err
 	}
