@@ -3,13 +3,14 @@ package sound
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"sync"
+	"time"
+
 	"github.com/gorilla/mux"
 	"github.com/paynejacob/speakerbob/pkg/service"
 	"github.com/paynejacob/speakerbob/pkg/websocket"
 	"github.com/sirupsen/logrus"
-	"net/http"
-	"sync"
-	"time"
 )
 
 type Service struct {
@@ -163,8 +164,8 @@ func (s *Service) updateSound(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// names cannot be set to empty
-	if !(0 < len(requestSound.Name) && len(requestSound.Name) < 30) {
-		service.WriteErrorResponse(w, service.NewNotAcceptableError("requestSound names must be between 1 and 15 characters"))
+	if !(0 < len(requestSound.Name) && len(requestSound.Name) < 50) {
+		service.WriteErrorResponse(w, service.NewNotAcceptableError("requestSound names must be between 1 and 50 characters"))
 		return
 	}
 
