@@ -2,9 +2,10 @@ FROM node:alpine as uibuild
 RUN apk add --no-cache yarn
 WORKDIR /ui
 COPY web/speakerbob/package.json /ui/package.json
-RUN yarn install --no-lockfile --silent --cache-folder .yc
+COPY web/speakerbob/yarn.lock /ui/yarn.lock
+RUN ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true yarn install --silent --cache-folder .yc
 COPY web/speakerbob /ui
-RUN yarn build
+RUN NODE_OPTIONS=--openssl-legacy-provider ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true yarn build
 
 FROM golang:1.16.6-alpine3.13 as gobuild
 ARG VERSION=v100.100.100-dev
