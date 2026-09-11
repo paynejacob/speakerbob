@@ -326,3 +326,9 @@ git commit -m "Bump Dockerfile base images to Go 1.26.8 / Alpine 3.24"
 - **Placeholder scan**: no "TBD"/"add appropriate X" — every step has the exact command or exact diff.
 - **Type/version consistency**: `1.26.8` (Go), `v3.2103.5` (badger), and every Action version are used identically across the spec, this plan's Global Constraints, and each task's steps — no drift between where a version is first stated and where it's later used.
 - **Ordering**: Task 1 (toolchain) before Task 2 (dependencies) matters — dependency `go get`/`go mod tidy` behavior can depend on the module's own `go` directive (module graph pruning rules differ pre/post Go 1.17). Tasks 3 and 4 (CI, Docker) have no code dependency on 1-2 and could in principle run in parallel, but are kept sequential here for simplicity and because they touch adjacent concerns (both are "pin the same target version in a different place").
+
+## Post-implementation notes
+
+- Task 1 additionally fixed a `go vet`-flagged unkeyed struct literal in `cmd/server/server.go:58` (adjudicated mid-execution — see the design spec's "Post-implementation notes" for detail).
+- `go.mod`'s `go` directive is `1.26.0`, not bare `1.26` as stated in this plan's Global Constraints — forced by `golang.org/x/tools`'s own minimum-version requirement once it was bumped past `v0.1.5` to fix `go generate` (see the design spec's "Post-implementation notes").
+- A 5th, unplanned fix was needed after the final whole-branch review: `go generate ./pkg/...` was broken by Go 1.17+ module-graph pruning dropping `hotcereal`'s codegen-tool dependencies from `go.sum`, compounded by that tool's `golang.org/x/tools` floor being too old to run under Go 1.26. Fixed via Go 1.24+ tool-dependency tracking (`go get -tool`) plus bumping `golang.org/x/tools` to `v0.50.0`.

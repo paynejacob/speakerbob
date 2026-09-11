@@ -160,3 +160,10 @@ end):
   (`.claude/learnings/2026-09-11-scripts-build-embed-path-mismatch.md`) —
   that's a separate, already-flagged issue, not part of this version
   bump.
+
+## Post-implementation notes
+
+Two things were adjudicated during actual implementation, not anticipated in the original design above:
+
+1. **`cmd/server/server.go:58` needed a real code fix, not just the build-tag comment.** `go vet` under Go 1.26 flagged a pre-existing unkeyed struct literal (`store.TypeKey{"versionVersion", 7, 7}`) — this check isn't new to 1.26, it was simply never run before (CI never runs `go vet`). Fixed to `store.TypeKey{Body: "versionVersion", PackageLength: 7, TypeLength: 7}` (same three values, keyed — zero behavior change, verified against `hotcereal/pkg/store.TypeKey`'s actual field names).
+2. **`go.mod`'s `go` directive ended up as `1.26.0`, not bare `1.26`.** `hotcereal`'s codegen tool (invoked via `//go:generate`, which `go mod tidy` can't see) needed `golang.org/x/tools` bumped past its old `v0.1.5` floor to keep working under a modern Go toolchain; the version that fixes it (`v0.50.0`) itself requires `go >= 1.26.0`, so `go mod tidy` enforces that as our module's floor too, on every run. `1.26.0` and `1.26` express the identical minimum language version — this is Go's own tooling requiring precision, not a scope deviation.
