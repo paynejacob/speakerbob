@@ -17,10 +17,12 @@ const (
 	githubAuthorizationURL = "https://github.com/login/oauth/authorize"
 	githubAccessTokenURL   = "https://github.com/login/oauth/access_token"
 	githubUserURL          = "https://api.github.com/user"
-	githubOrgsURL          = "https://api.github.com/user/orgs?per_page=100"
 	githubEmailsURL        = "https://api.github.com/user/emails?per_page=100"
 	githubScope            = "read:org,user:email"
 )
+
+// githubOrgsURL is a var (not const) so tests can point it at a mock server.
+var githubOrgsURL = "https://api.github.com/user/orgs?per_page=100"
 
 // https://docs.github.com/en/developers/apps/building-oauth-apps/authorizing-oauth-apps
 
@@ -187,35 +189,74 @@ func getGithubUserInfo(ghToken string) (userId string, userEmail string, orgs []
 		}
 	}
 
-	// https://docs.github.com/en/rest/reference/orgs#list-organizations-for-the-authenticated-user
-	req, _ = http.NewRequest(http.MethodGet, githubOrgsURL, nil)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "token "+ghToken)
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		return
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		logrus.Errorf("bad response for github orgs: [%d]", resp.StatusCode)
-		err = errors.New("bad response for github orgs")
-		return
-	}
-
-	// TODO: support paging here, users with >100 orgs will fail
-	// https://docs.github.com/en/rest/reference/users#get-the-authenticated-user
-	var orgList []struct {
-		Login string `json:"login"`
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&orgList)
+	orgs, err = getGithubOrgs(ghToken)
 	if err != nil {
 		return "", "", nil, err
 	}
 
-	for _, org := range orgList {
-		orgs = append(orgs, org.Login)
+	return
+}
+
+// getGithubOrgs fetches every org for the authenticated user, following the
+// Link "next" header across pages instead of assuming the first page (up to
+// per_page=100 orgs) is the complete list.
+// https://docs.github.com/en/rest/reference/orgs#list-organizations-for-the-authenticated-user
+func getGithubOrgs(ghToken string) (orgs []string, err error) {
+	nextURL := githubOrgsURL
+
+	for nextURL != "" {
+		req, _ := http.NewRequest(http.MethodGet, nextURL, nil)
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("Authorization", "token "+ghToken)
+
+		resp, doErr := http.DefaultClient.Do(req)
+		if doErr != nil {
+			return nil, doErr
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			logrus.Errorf("bad response for github orgs: [%d]", resp.StatusCode)
+			return nil, errors.New("bad response for github orgs")
+		}
+
+		var orgList []struct {
+			Login string `json:"login"`
+		}
+
+		decodeErr := json.NewDecoder(resp.Body).Decode(&orgList)
+		nextURL = parseNextLink(resp.Header.Get("Link"))
+		resp.Body.Close()
+		if decodeErr != nil {
+			return nil, decodeErr
+		}
+
+		for _, org := range orgList {
+			orgs = append(orgs, org.Login)
+		}
 	}
 
-	return
+	return orgs, nil
+}
+
+// parseNextLink extracts the rel="next" URL from a GitHub API Link header,
+// e.g. `<https://api.github.com/user/orgs?page=2>; rel="next", <...>; rel="last"`.
+// Returns "" once there is no next page.
+func parseNextLink(linkHeader string) string {
+	for _, part := range strings.Split(linkHeader, ",") {
+		segments := strings.Split(part, ";")
+		if len(segments) < 2 {
+			continue
+		}
+
+		url := strings.Trim(strings.TrimSpace(segments[0]), "<>")
+
+		for _, seg := range segments[1:] {
+			if strings.TrimSpace(seg) == `rel="next"` {
+				return url
+			}
+		}
+	}
+
+	return ""
 }
