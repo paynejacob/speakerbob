@@ -36,9 +36,8 @@ the authenticated GitHub user's orgs and primary email against configured
 allowlists (`OrganizationPermissionMap`, `EmailPermissionMap`); denies via
 `auth.AccessDenied{}` otherwise.
 
-**Known limitation**: the org-membership check fetches only the first 100
-orgs (`per_page=100`) with no pagination — a user in >100 orgs can be
-denied incorrectly.
+The org-membership check (`getGithubOrgs`) follows the `Link` "next"
+header to fetch every page of orgs, not just the first 100.
 
 ## pkg/health
 
