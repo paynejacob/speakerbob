@@ -5,7 +5,7 @@ paths:
 # Go Patterns (this repo)
 
 > Repo-specific idioms — generic Go design patterns are covered by the
-> globally-installed `ecc` plugin's `golang-patterns` skill.
+> globally-installed `ecc` plugin's `ecc:golang-patterns` skill.
 
 ## hotcereal graph/store
 
@@ -16,6 +16,10 @@ indexed/stored:
 
 - A field tagged as the key (e.g. `Id`) is the primary lookup key.
 - Fields tagged `searchable` (e.g. `Sound.Name`) get a secondary index.
+- Fields tagged `lookup` (e.g. `Token.Token`, `User.Email`,
+  `User.Principals`) generate a dedicated accessor on the provider (e.g.
+  `GetByToken`, `GetByEmail`, `GetByPrincipals`) for looking the record up
+  by that field's value instead of its primary key.
 - Fields tagged `lazy` (e.g. `Sound.Audio []byte`) are stored/streamed
   separately from the main record via `store.ReadLazy`/`WriteLazy`,
   instead of being inlined into every read of the record.

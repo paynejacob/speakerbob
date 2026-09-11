@@ -12,8 +12,13 @@ changes** as part of Go-focused modernization work (Go version upgrade,
 backend code/test improvements) unless a task explicitly asks for
 frontend changes.
 
-`pkg/static` embeds this app's build output (`web/speakerbob`'s `dist/`,
-copied to repo-root `assets/` by `scripts/build`, embedded via
-`//go:embed assets` in `pkg/static/service.go`) and serves it as the
-catch-all SPA fallback. Changing how the backend serves static assets is
-in scope; changing the frontend's own source code is not.
+`pkg/static` embeds this app's build output via `//go:embed assets` in
+`pkg/static/service.go` — a package-relative path, so it actually reads
+from `pkg/static/assets/`. The `Dockerfile`'s `uibuild` stage populates
+that directory correctly (`COPY --from=uibuild /ui/dist
+pkg/static/assets`); `scripts/build` instead moves the frontend build to
+repo-root `assets/`, which is not the embedded path — see
+`../../mappings/build-release-map.md` and learning
+`2026-09-11-scripts-build-embed-path-mismatch.md`. Changing how the
+backend serves static assets is in scope; changing the frontend's own
+source code is not.

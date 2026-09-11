@@ -24,13 +24,17 @@ into the binary at build time.
 ```bash
 go build ./...
 go test ./...
-go generate ./pkg/...   # regenerate hotcereal provider code — see rules/golang/codegen.md
+go generate ./pkg/...   # regenerate hotcereal provider code — see .claude/rules/golang/codegen.md
 ```
 
 Before considering a Go change done, run the checks CI runs — see skill
 `speakerbob-validate`.
 
 ## Rules
+
+Note: each rule file's `paths:` frontmatter is documentation only (not
+enforced by tooling) — every rule below loads into every session via the
+imports regardless of what `paths:` lists.
 
 @.claude/rules/common/coding-style.md
 @.claude/rules/common/testing.md

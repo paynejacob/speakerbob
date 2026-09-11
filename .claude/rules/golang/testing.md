@@ -13,10 +13,11 @@ paths:
   `assert`/`require`.
 - `github.com/gavv/httpexpect/v2` (already a dependency) for HTTP handler
   tests — wrap the `*mux.Router` a service registers its routes on.
-- For storage-layer tests, use a real in-memory-mode `badgerdb.Store`
-  (badger supports `badger.DefaultOptions("").WithInMemory(true)`) rather
-  than mocking `hotcereal/pkg/store.Store` — the existing
-  `pkg/sound/service_test.go` is the reference example for this pattern.
+- For storage-layer tests, use `hotcereal`'s in-memory store implementation
+  (`github.com/paynejacob/hotcereal/pkg/stores/memory`, `memory.New()`)
+  rather than mocking `hotcereal/pkg/store.Store` or wiring up a real
+  `badgerdb.Store` — the existing `pkg/sound/service_test.go` is the
+  reference example for this pattern.
 
 ## Running tests
 
@@ -36,3 +37,16 @@ extra check when touching `pkg/websocket` or `pkg/sound/queue.go`
 Tests only for code a change touches (see `../common/testing.md`) — do not
 open a separate PR-shaped effort to backfill coverage on untouched
 packages.
+
+## Runtime prerequisites for tests
+
+`go test ./...` requires `ffmpeg` and `flite` on `PATH` — `pkg/sound`'s
+tests shell out to both (see `pkg/sound/audio.go`). CI installs them
+explicitly (`sudo apt install -y flite ffmpeg`) before running tests; do
+the same locally, or those tests will fail with an exec error, not a Go
+compile error.
+
+## Reference
+
+See the globally-installed `ecc` plugin skill `ecc:golang-testing` for
+generic Go testing idioms not specific to this repo.

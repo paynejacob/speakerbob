@@ -78,8 +78,12 @@ The core domain: sound clips, groups, playback, and text-to-speech.
 - `audio.go`: shells out to `ffmpeg` (loudnorm, mp3, duration-capped) and
   `flite` (TTS) via `os/exec`. Requires both binaries on `PATH`
   (installed in the Docker image, see `build-release-map.md`).
-- `queue.go`: a single global sequential `playQueue` — enqueue appends and
-  signals a channel; a `ConsumeQueue` goroutine pops one sound at a time,
+- `queue.go`: a sequential `playQueue` (an unexported field on
+  `sound.Service`, initialized in `Run(ctx)` — effectively one queue per
+  process since there's only one `Service` instance in production, but
+  not literally a package-level global; the existing test constructs its
+  own instance) — enqueue appends and signals a channel; a `ConsumeQueue`
+  goroutine pops one sound at a time,
   broadcasts a `PlayMessage`, and waits out its `Duration` before playing
   the next. See `../rules/golang/patterns.md`'s "Broadcast pattern" —
   playback broadcasts are asynchronous relative to the HTTP call that

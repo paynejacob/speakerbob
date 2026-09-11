@@ -33,6 +33,11 @@ development runs without real OAuth configured.
    actually starts playing this sound (it may be queued behind another
    sound already playing).
 
+Note: if no `auth.Provider`s are configured at all, `auth.Service.Enabled()`
+is `false` and `VerifyRequest` allows every request through
+unauthenticated — this is relevant to local/dev setups that don't wire up
+a real OAuth provider.
+
 CRUD-style requests (create/update/delete a sound or group) follow the
 same auth-middleware step, then persist via the relevant provider and
 broadcast the corresponding message (`update_sound`, `delete_sound`, ...)

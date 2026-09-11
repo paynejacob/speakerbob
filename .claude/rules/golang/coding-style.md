@@ -32,6 +32,6 @@ paths:
 
 ## Reference
 
-See the globally-installed `ecc` plugin skill `golang-patterns` for
+See the globally-installed `ecc` plugin skill `ecc:golang-patterns` for
 generic Go idioms not specific to this repo. `golang/patterns.md` in this
 folder covers idioms specific to *this* codebase (hotcereal graph/store).
