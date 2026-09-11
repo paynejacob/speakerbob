@@ -7,48 +7,48 @@ jobs:
     name: golang-lint lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.16.6"
-      - uses: actions/setup-node@v2
+          go-version: "1.26.8"
+      - uses: actions/setup-node@v7.0.0
       - run: scripts/validate/golang-lint
   go-test:
     name: golang-lint test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.16.6"
-      - uses: actions/setup-node@v2
+          go-version: "1.26.8"
+      - uses: actions/setup-node@v7.0.0
       - run: sudo apt install -y flite ffmpeg
       - run: scripts/validate/golang-test
   generate:
     name: generate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.16.6"
+          go-version: "1.26.8"
       - run: scripts/validate/generate
   web:
     name: web
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
       - run: scripts/validate/web
   helm:
     name: helm
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7.0.1
       - run: scripts/validate/helm
   docker:
     name: docker
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7.0.1
       - run: scripts/validate/docker
