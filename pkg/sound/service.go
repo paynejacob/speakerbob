@@ -195,10 +195,17 @@ func (s *Service) deleteSound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := DeleteSoundWithGroups(s.GroupProvider, s.SoundProvider, sound)
+	deletedGroups, err := DeleteSoundWithGroups(s.GroupProvider, s.SoundProvider, sound)
 	if err != nil && err != mux.ErrNotFound {
 		service.WriteErrorResponse(w, err)
 		return
+	}
+
+	for _, group := range deletedGroups {
+		s.WebsocketService.BroadcastMessage(GroupMessage{
+			Type:  websocket.DeleteGroupMessageType,
+			Group: group,
+		})
 	}
 
 	s.WebsocketService.BroadcastMessage(SoundMessage{
