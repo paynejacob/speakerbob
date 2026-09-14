@@ -34,29 +34,22 @@ what `scripts/validate/golang-lint` checks in CI.
 
 ## `scripts/build` — only runs in `release.yaml`
 
-Builds the frontend (`yarn build`) and moves its output to repo-root
-`assets/` via `mv dist ../../assets` (relative to `web/speakerbob/`).
-**This does not appear to be where the binary actually looks**:
-`pkg/static/service.go`'s `//go:embed assets` is package-relative, so it
-embeds `pkg/static/assets/` — which only contains a committed 75-byte
-placeholder `index.html`, not the real frontend build. The `Dockerfile`
-gets this right independently (`COPY --from=uibuild /ui/dist
-pkg/static/assets`, see below — the Dockerfile builds the frontend
-itself in its own `uibuild` stage; it does not invoke `scripts/build`),
-but `scripts/build`'s own cross-compiled binaries (used by
-`release.yaml`) likely embed the placeholder, not the real frontend.
-This looks like a pre-existing bug in `scripts/build`, not a
-documented/intentional design — see learning
-`2026-09-11-scripts-build-embed-path-mismatch.md` for detail. Stamps
-`charts/speakerbob/Chart.yaml` and `docs/{asyncapi,openapi}.yaml` version
-fields via `yq`. Cross-compiles 3 binaries (output filenames say linux/arm64, linux/amd64,
-windows — but the arm build's own env vars look off: it sets
-`GOARCH=arm` (32-bit, not arm64) and has a typo, `GO_ENABLED=1` instead of
-`CGO_ENABLED=1`, so despite the `-arm64` output filename that binary is
-actually a 32-bit, non-cgo build. Only the amd64 and windows builds
-correctly set `CGO_ENABLED=1` — needed for the `badger`/cgo dependencies —
-with the version ldflag setting `pkg/version.Version`). Packages the helm
-chart and copies API spec docs into `dist/`.
+Builds the frontend (`yarn build`) and moves its output directly into
+`pkg/static/assets` — matching `pkg/static/service.go`'s
+package-relative `//go:embed assets`, and the same path the
+`Dockerfile`'s `uibuild` stage populates independently (see below). An
+earlier version of this script moved the build to repo-root `assets/`
+instead, a path nothing embeds — see learning
+`2026-09-11-scripts-build-embed-path-mismatch.md` for that history.
+Stamps `charts/speakerbob/Chart.yaml` and `docs/{asyncapi,openapi}.yaml`
+version fields via `yq`. Cross-compiles 3 binaries (linux/arm64,
+linux/amd64, windows), each with `CGO_ENABLED=1` (needed for the
+`badger`/cgo dependencies) and the version ldflag setting
+`pkg/version.Version`; the arm64 build cross-compiles with
+`aarch64-linux-gnu-gcc` (installed in `release.yaml` alongside the
+windows `mingw` one). Packages the helm chart and copies API spec docs
+into `dist/`. Runs under `set -euo pipefail`, so a failing build step
+fails the job instead of being silently skipped.
 
 ## `Dockerfile`
 

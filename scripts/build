@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
 set -x
 
 pushd web/speakerbob
   yarn install --no-lockfile --silent --cache-folder .yc
   yarn build
-  mv dist ../../assets
+  rm -rf ../../pkg/static/assets
+  mv dist ../../pkg/static/assets
 popd
 
 mkdir -p dist
@@ -15,7 +17,7 @@ yq e -i '.appVersion = strenv(IMAGE_TAG)' charts/speakerbob/Chart.yaml
 yq e -i '.info.version = strenv(CHART_VERSION)' docs/asyncapi.yaml
 yq e -i '.info.version = strenv(CHART_VERSION)' docs/openapi.yaml
 
-CC=arm-linux-gnueabi-gcc GO_ENABLED=1 GOOS=linux GOARCH=arm go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/pkg/version.Version=$VERSION" -o dist/speakerbob-"$VERSION"-arm64 main.go
+CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/pkg/version.Version=$VERSION" -o dist/speakerbob-"$VERSION"-arm64 main.go
 CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/pkg/version.Version=$VERSION" -o dist/speakerbob-"$VERSION"-amd64 main.go
 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 GOOS=windows go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/pkg/version.Version=$VERSION" -o dist/speakerbob-"$VERSION"-win.exe main.go
 
