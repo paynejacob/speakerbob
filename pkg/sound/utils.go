@@ -1,23 +1,24 @@
 package sound
 
-func DeleteSoundWithGroups(groupProvider *GroupProvider, soundProvider *SoundProvider, sound *Sound) (err error) {
-	var deleteGroups []*Group
-
+func DeleteSoundWithGroups(groupProvider *GroupProvider, soundProvider *SoundProvider, sound *Sound) (deletedGroups []*Group, err error) {
 	for _, group := range groupProvider.List() {
 		for _, soundId := range group.SoundIds {
 			if soundId == sound.Id {
-				deleteGroups = append(deleteGroups, group)
+				deletedGroups = append(deletedGroups, group)
 				break
 			}
 		}
 	}
 
-	if deleteGroups != nil {
-		err = groupProvider.Delete(deleteGroups...)
-		if err != nil {
-			return err
+	if deletedGroups != nil {
+		if err = groupProvider.Delete(deletedGroups...); err != nil {
+			return nil, err
 		}
 	}
 
-	return soundProvider.Delete(sound)
+	if err = soundProvider.Delete(sound); err != nil {
+		return nil, err
+	}
+
+	return deletedGroups, nil
 }
