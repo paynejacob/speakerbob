@@ -95,7 +95,7 @@ func (p *SoundProvider) NewTTSSound(text string, maxDuration time.Duration) (*So
 	sound.Hidden = true
 
 	// codegen audio
-	err = tts(text, &buf)
+	err = ttsEngine.Synthesize(text, &buf)
 	if err != nil {
 		return nil, err
 	}

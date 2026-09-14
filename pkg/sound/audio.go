@@ -12,8 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var specialCharacterRegexp = regexp.MustCompile(`[^a-zA-Z0-9\\s.? ]+`)
-
 var durationRegexp = regexp.MustCompile(`time=(?P<h>\d+):(?P<m>\d+):(?P<s>\d+).(?P<ms>\d+)`)
 
 func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w io.Writer) (time.Duration, error) {
@@ -82,15 +80,4 @@ func normalizeAudio(filename string, maxDuration time.Duration, r io.Reader, w i
 	}
 
 	return duration, nil
-}
-
-func tts(text string, w io.Writer) error {
-	cmd := exec.Command(
-		"flite",
-		"-voice", "slt",
-		"-t", specialCharacterRegexp.ReplaceAllString(text, ""),
-		"-o", "/dev/stdout")
-	cmd.Stdout = w
-
-	return cmd.Run()
 }
