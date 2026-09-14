@@ -6,6 +6,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/paynejacob/speakerbob/pkg/auth"
 	"net/http"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -37,7 +39,8 @@ func (s *Service) BroadcastMessage(msg interface{}) {
 func (s *Service) Run(context.Context) {}
 
 func (s *Service) connect(w http.ResponseWriter, r *http.Request) {
-	if _, valid := s.AuthService.VerifyWebsocket(r); !valid {
+	token, valid := s.AuthService.VerifyWebsocket(r)
+	if !valid {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -47,7 +50,7 @@ func (s *Service) connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn := NewConn(ws, s)
+	conn := NewConn(ws, s, token)
 	s.registerConnection(conn)
 
 	go conn.writePump()
@@ -66,6 +69,8 @@ func (s *Service) registerConnection(conn *Conn) {
 		Type:  ConnectionCountMessageType,
 		Count: connectionCount,
 	})
+
+	s.broadcastPresence()
 }
 
 func (s *Service) unRegisterConnection(conn *Conn) {
@@ -85,4 +90,54 @@ func (s *Service) unRegisterConnection(conn *Conn) {
 		Type:  ConnectionCountMessageType,
 		Count: connectionCount,
 	})
+
+	s.broadcastPresence()
+}
+
+// broadcastPresence sends the deduplicated list of signed-in users currently
+// connected. Identity is the local-part of the user's email (e.g. "alice"
+// from "alice@example.com") rather than the full address: User.Email is
+// otherwise treated as non-public (json:"-") throughout this codebase, and
+// this broadcast reaches every connected client, not just the user it
+// describes.
+func (s *Service) broadcastPresence() {
+	s.m.RLock()
+	seen := make(map[string]struct{}, len(s.connections))
+	identities := make([]string, 0, len(s.connections))
+	for _, c := range s.connections {
+		identity := s.userIdentity(c.token)
+		if identity == "" {
+			continue
+		}
+		if _, ok := seen[identity]; ok {
+			continue
+		}
+		seen[identity] = struct{}{}
+		identities = append(identities, identity)
+	}
+	s.m.RUnlock()
+
+	sort.Strings(identities)
+
+	s.BroadcastMessage(PresenceMessage{
+		Type:  PresenceMessageType,
+		Users: identities,
+	})
+}
+
+func (s *Service) userIdentity(token *auth.Token) string {
+	if token == nil || s.AuthService == nil || s.AuthService.UserProvider == nil {
+		return ""
+	}
+
+	user := s.AuthService.UserProvider.Get(token.UserId)
+	if user == nil || user.Email == "" {
+		return ""
+	}
+
+	if i := strings.Index(user.Email, "@"); i > 0 {
+		return user.Email[:i]
+	}
+
+	return user.Email
 }
