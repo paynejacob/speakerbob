@@ -64,7 +64,14 @@ export default class Player {
   }
 
   public async EnableSound () {
-    this.ctx = this.ctx = new window.AudioContext()
+    this.ctx = new window.AudioContext()
+
+    // Safari can create an AudioContext in a 'suspended' state even inside
+    // a user-gesture handler; resume() must run synchronously in the same
+    // gesture or playback silently never starts.
+    if (this.ctx.state === 'suspended') {
+      await this.ctx.resume()
+    }
 
     this.enabled = true
   }
