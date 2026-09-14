@@ -7,7 +7,7 @@ RUN ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true yarn install --silent --cache-f
 COPY web/speakerbob /ui
 RUN NODE_OPTIONS=--openssl-legacy-provider ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true yarn build
 
-FROM golang:1.16.6-alpine3.13 as gobuild
+FROM golang:1.26.8-alpine3.24 as gobuild
 ARG VERSION=v100.100.100-dev
 RUN apk add --no-cache curl gcc musl-dev
 WORKDIR /speakerbob
@@ -19,7 +19,7 @@ COPY pkg pkg
 COPY --from=uibuild /ui/dist pkg/static/assets
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/pkg/version.Version=$VERSION" -o speakerbob main.go
 
-FROM alpine:3.13
+FROM alpine:3.24
 RUN apk add --no-cache ffmpeg flite
 COPY build/docker/mime.types /etc/mime.types
 COPY --from=gobuild /speakerbob/speakerbob /usr/local/bin/speakerbob

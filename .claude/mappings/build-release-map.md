@@ -15,8 +15,8 @@ together.
 | `docker` | full `docker build --no-cache .` (no push) |
 
 Each runs as its own parallel CI job. Only `golang-lint`, `golang-test`,
-and `generate` need a Go toolchain and are pinned to Go `1.16.6` via
-`actions/setup-go@v2` in `validate.yaml`; `web`, `helm`, and `docker`
+and `generate` need a Go toolchain and are pinned to Go `1.26.8` via
+`actions/setup-go@v7.0.0` in `validate.yaml`; `web`, `helm`, and `docker`
 don't set up Go at all.
 
 ## `scripts/version`
@@ -61,7 +61,7 @@ chart and copies API spec docs into `dist/`.
 ## `Dockerfile`
 
 Multi-stage: `uibuild` (node/yarn, builds `web/speakerbob`) →
-`gobuild` (`golang:1.16.6-alpine3.13`, copies the `uibuild` output to
+`gobuild` (`golang:1.26.8-alpine3.24`, copies the `uibuild` output to
 `pkg/static/assets`, builds the Go binary with `CGO_ENABLED=1`) → final
 `alpine` stage installing `ffmpeg`/`flite` (runtime dependencies of
 `pkg/sound/audio.go`) and copying just the built binary. Used by both
