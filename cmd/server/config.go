@@ -17,6 +17,9 @@ type Configuration struct {
 
 	DurationLimit time.Duration `yaml:"duration_limit"`
 
+	SnapshotPath     string        `yaml:"snapshot_path"`
+	SnapshotInterval time.Duration `yaml:"snapshot_interval"`
+
 	Auth struct {
 		Github github.Provider `yaml:"github"`
 	} `yaml:"auth"`

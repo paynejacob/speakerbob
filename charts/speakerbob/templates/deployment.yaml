@@ -56,6 +56,10 @@ spec:
             - mountPath: /data
               name: data
             {{- end }}
+            {{- if .Values.snapshot.enabled }}
+            - mountPath: /snapshots
+              name: snapshots
+            {{- end }}
             - mountPath: /config
               name: config
       {{- with .Values.nodeSelector }}
@@ -75,6 +79,11 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "speakerbob.persistenceClaim" . }}
+        {{- end }}
+        {{- if .Values.snapshot.enabled }}
+        - name: snapshots
+          persistentVolumeClaim:
+            claimName: {{ include "speakerbob.snapshotPersistenceClaim" . }}
         {{- end }}
         - name: config
           secret:

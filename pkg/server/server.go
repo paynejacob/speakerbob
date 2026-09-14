@@ -10,6 +10,7 @@ import (
 	"github.com/paynejacob/speakerbob/pkg/auth"
 	"github.com/paynejacob/speakerbob/pkg/health"
 	"github.com/paynejacob/speakerbob/pkg/service"
+	"github.com/paynejacob/speakerbob/pkg/snapshot"
 	"github.com/paynejacob/speakerbob/pkg/sound"
 	"github.com/paynejacob/speakerbob/pkg/static"
 	"github.com/paynejacob/speakerbob/pkg/websocket"
@@ -23,6 +24,9 @@ type Config struct {
 	Port          int
 	DurationLimit time.Duration
 	AuthProviders []auth.Provider
+
+	SnapshotPath     string
+	SnapshotInterval time.Duration
 }
 
 type Server struct {
@@ -61,6 +65,18 @@ func NewServer(_store store.Store, config Config) *Server {
 		MaxSoundDuration: config.DurationLimit,
 	})
 	svr.serviceManager.RegisterService(router, health.Service{})
+
+	if config.SnapshotPath != "" {
+		if backuper, ok := _store.(snapshot.Backuper); ok {
+			svr.serviceManager.RegisterService(router, &snapshot.Service{
+				Store:    backuper,
+				Path:     config.SnapshotPath,
+				Interval: config.SnapshotInterval,
+			})
+		} else {
+			logrus.Warn("snapshot_path is configured but the store does not support backups; snapshots are disabled")
+		}
+	}
 
 	router.NotFoundHandler = static.Service{}
 

@@ -111,3 +111,7 @@ func (b Store) Delete(keys ...store.Key) error {
 func (b Store) Close() error {
 	return b.DB.Close()
 }
+
+func (b Store) Backup(w io.Writer) (uint64, error) {
+	return b.DB.Backup(w, 0)
+}

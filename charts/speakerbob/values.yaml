@@ -68,6 +68,11 @@ configuration:
   port: 80
   data_path: /data
   duration_limit: 10s
+  # snapshot_path enables periodic full database backups when non-empty.
+  # If snapshot.enabled below is true, this must be set to /snapshots to
+  # match the volume mount path.
+  snapshot_path: ""
+  snapshot_interval: 24h
   auth:
     github:
       enabled: false
@@ -82,3 +87,14 @@ persistence:
   accessMode: "ReadWriteOnce"
   size: "10Gi"
   annotations: {}
+
+# snapshot provisions a separate volume for periodic database backups,
+# mounted at /snapshots. Enabling this alone does not turn on snapshotting
+# -- also set configuration.snapshot_path above to /snapshots.
+snapshot:
+  enabled: false
+  persistence:
+    existingClaim: ""
+    accessMode: "ReadWriteOnce"
+    size: "5Gi"
+    annotations: {}
