@@ -3,6 +3,7 @@ package sound
 import (
 	"context"
 	"github.com/paynejacob/speakerbob/pkg/websocket"
+	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
 )
@@ -27,7 +28,7 @@ func (q *playQueue) EnqueueSounds(sounds ...Sound) {
 	q.m.Unlock()
 }
 
-func (q *playQueue) ConsumeQueue(ctx context.Context, ws *websocket.Service) {
+func (q *playQueue) ConsumeQueue(ctx context.Context, ws *websocket.Service, soundProvider *SoundProvider) {
 	var timer *time.Timer
 	var isEmpty bool
 	var isPlaying bool
@@ -47,6 +48,7 @@ func (q *playQueue) ConsumeQueue(ctx context.Context, ws *websocket.Service) {
 
 			// get the next sound off the playQueue and play it
 			_sound, _ = q.pop()
+			incrementPlayCount(soundProvider, &_sound)
 			ws.BroadcastMessage(PlayMessage{
 				Type:      websocket.PlayMessageType,
 				Sound:     _sound,
@@ -64,6 +66,7 @@ func (q *playQueue) ConsumeQueue(ctx context.Context, ws *websocket.Service) {
 				continue
 			}
 
+			incrementPlayCount(soundProvider, &_sound)
 			ws.BroadcastMessage(PlayMessage{
 				Type:      websocket.PlayMessageType,
 				Sound:     _sound,
@@ -96,4 +99,23 @@ func (q *playQueue) pop() (s Sound, empty bool) {
 	q.sounds = q.sounds[1:]
 
 	return
+}
+
+// incrementPlayCount persists the play count against the provider's stored copy,
+// since the queue only ever holds a value-copy snapshot of the sound; it also
+// updates sound in place so the broadcast reflects the new count.
+func incrementPlayCount(soundProvider *SoundProvider, sound *Sound) {
+	stored := soundProvider.Get(sound.Id)
+	if stored == nil {
+		return
+	}
+
+	updated := *stored
+	updated.PlayCount++
+	if err := soundProvider.Save(&updated); err != nil {
+		logrus.Errorf("failed to increment play count for sound %q: %s", sound.Id, err)
+		return
+	}
+
+	sound.PlayCount = updated.PlayCount
 }

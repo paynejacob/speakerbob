@@ -15,10 +15,11 @@ type Sound struct {
 	Id        string    `json:"id,omitempty" hotcereal:"key"`
 	CreatedAt time.Time `json:"created_at,omitempty"`
 
-	Name     string        `json:"name,omitempty" hotcereal:"searchable"`
-	Duration time.Duration `json:"duration,omitempty"`
-	Hidden   bool          `json:"-"`
-	Audio    []byte        `json:"-" hotcereal:"lazy"`
+	Name      string        `json:"name,omitempty" hotcereal:"searchable"`
+	Duration  time.Duration `json:"duration,omitempty"`
+	PlayCount int           `json:"play_count"`
+	Hidden    bool          `json:"-"`
+	Audio     []byte        `json:"-" hotcereal:"lazy"`
 }
 
 func NewSound() Sound {
