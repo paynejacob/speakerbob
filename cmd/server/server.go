@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package server
@@ -54,7 +55,7 @@ func Server(*cobra.Command, []string) {
 		DB: db,
 	}
 
-	err = _store.Save(store.TypeKey{"versionVersion", 7, 7}, []byte(version.Version))
+	err = _store.Save(store.TypeKey{Body: "versionVersion", PackageLength: 7, TypeLength: 7}, []byte(version.Version))
 	if err != nil {
 		logrus.Fatal("failed to set database version")
 	}
