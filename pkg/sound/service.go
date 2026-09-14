@@ -1,6 +1,7 @@
 package sound
 
 import (
+	"container/heap"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -18,14 +19,21 @@ type Service struct {
 	GroupProvider    *GroupProvider
 	WebsocketService *websocket.Service
 	MaxSoundDuration time.Duration
+	HiddenSoundTTL   time.Duration
 
 	playQueue playQueue
+	cleanupCh chan cleanupItem
 }
 
-const cleanupInterval = 4 * time.Hour
 const hiddenSoundTTL = 24 * time.Hour
+const cleanupChannelBufferSize = 64
 
 func (s *Service) RegisterRoutes(router *mux.Router) {
+	if s.HiddenSoundTTL <= 0 {
+		s.HiddenSoundTTL = hiddenSoundTTL
+	}
+	s.cleanupCh = make(chan cleanupItem, cleanupChannelBufferSize)
+
 	r := router.PathPrefix("/sound").Subrouter()
 
 	sounds := r.PathPrefix("/sounds").Subrouter()
@@ -50,10 +58,6 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 }
 
 func (s *Service) Run(ctx context.Context) {
-	var err error
-	var now time.Time
-	var ticker *time.Ticker
-
 	s.playQueue = playQueue{
 		m:           sync.RWMutex{},
 		playChannel: make(chan bool, 0),
@@ -62,27 +66,82 @@ func (s *Service) Run(ctx context.Context) {
 
 	go s.playQueue.ConsumeQueue(ctx, s.WebsocketService)
 
-	ticker = time.NewTicker(cleanupInterval)
+	pending := &cleanupQueue{}
+	heap.Init(pending)
+
+	logrus.Debug("seeding hidden sound cleanup queue")
+	for _, sound := range s.SoundProvider.List() {
+		if sound.Hidden {
+			heap.Push(pending, cleanupItem{id: sound.Id, expiresAt: sound.CreatedAt.Add(s.HiddenSoundTTL)})
+		}
+	}
+
+	timer := time.NewTimer(0)
+	if !timer.Stop() {
+		<-timer.C
+	}
+	resetTimer := func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+
+		if pending.Len() == 0 {
+			return
+		}
+		if d := time.Until((*pending)[0].expiresAt); d > 0 {
+			timer.Reset(d)
+		} else {
+			timer.Reset(0)
+		}
+	}
+	resetTimer()
 
 	logrus.Info("starting sound service worker")
 	for {
 		select {
 		case <-ctx.Done():
-			break
-		case <-ticker.C:
+			return
+		case item := <-s.cleanupCh:
+			heap.Push(pending, item)
+			resetTimer()
+		case <-timer.C:
 			logrus.Debug("starting hidden sound cleanup")
-			now = time.Now()
+			now := time.Now()
 
-			for _, sound := range s.SoundProvider.List() {
-				if sound.Hidden && now.Sub(sound.CreatedAt) > hiddenSoundTTL {
-					logrus.Infof("deleting \"%s\" expired hidden sounds", sound.Id)
-					err = s.SoundProvider.Delete(sound)
-					if err != nil {
-						logrus.Errorf("error deleting hidden sound: %d", err)
-					}
+			for pending.Len() > 0 && !(*pending)[0].expiresAt.After(now) {
+				item := heap.Pop(pending).(cleanupItem)
+
+				sound := s.SoundProvider.Get(item.id)
+				if sound == nil || !sound.Hidden {
+					continue
+				}
+
+				logrus.Infof("deleting \"%s\" expired hidden sound", sound.Id)
+				if err := s.SoundProvider.Delete(sound); err != nil {
+					logrus.Errorf("error deleting hidden sound: %s", err)
 				}
 			}
+			resetTimer()
 		}
+	}
+}
+
+// enqueueCleanup schedules a hidden sound for expiry-based deletion instead
+// of waiting for the next full-list scan. Safe to call before Run starts
+// (RegisterRoutes always initializes cleanupCh first); a full queue drops
+// the item with a warning rather than blocking the caller.
+func (s *Service) enqueueCleanup(item cleanupItem) {
+	if s.cleanupCh == nil {
+		return
+	}
+
+	select {
+	case s.cleanupCh <- item:
+	default:
+		logrus.Warnf("cleanup queue full, sound %q may not be cleaned up until next restart", item.id)
 	}
 }
 
@@ -122,6 +181,7 @@ func (s *Service) createSound(w http.ResponseWriter, r *http.Request) {
 			service.WriteErrorResponse(w, err)
 			return
 		}
+		s.enqueueCleanup(cleanupItem{id: sound.Id, expiresAt: sound.CreatedAt.Add(s.HiddenSoundTTL)})
 		break
 	}
 
@@ -445,6 +505,7 @@ func (s *Service) say(w http.ResponseWriter, r *http.Request) {
 		service.WriteErrorResponse(w, err)
 		return
 	}
+	s.enqueueCleanup(cleanupItem{id: sound.Id, expiresAt: sound.CreatedAt.Add(s.HiddenSoundTTL)})
 
 	// enqueue playback
 	s.playQueue.EnqueueSounds(*sound)

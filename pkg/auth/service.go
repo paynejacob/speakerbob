@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"container/heap"
 	"context"
 	"encoding/json"
 	"github.com/gorilla/mux"
@@ -17,7 +18,7 @@ const (
 	cookieName                     = "speakerbob-session"
 	sessionTTL                     = 24 * time.Hour
 	wsTokenTTL                     = 1 * time.Minute
-	cleanupInterval                = 1 * time.Hour
+	cleanupChannelBufferSize       = 64
 )
 
 type Service struct {
@@ -26,6 +27,8 @@ type Service struct {
 	states        StateManager
 
 	Providers []Provider
+
+	cleanupCh chan cleanupItem
 }
 
 type createTokenResponse struct {
@@ -37,6 +40,8 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 	if !s.Enabled() {
 		return
 	}
+
+	s.cleanupCh = make(chan cleanupItem, cleanupChannelBufferSize)
 
 	router.HandleFunc("/user/preferences/", s.getUserPreferences).Methods(http.MethodGet)
 	router.HandleFunc("/user/preferences/", s.updateUserPreferences).Methods(http.MethodPatch)
@@ -54,39 +59,90 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 }
 
 func (s *Service) Run(ctx context.Context) {
-	var err error
-	var now time.Time
-	var expiredTokens []*Token
-	var ticker *time.Ticker
-
 	if !s.Enabled() {
 		return
 	}
 
-	ticker = time.NewTicker(cleanupInterval)
+	pending := &cleanupQueue{}
+	heap.Init(pending)
+
+	logrus.Debug("seeding token cleanup queue")
+	for _, token := range s.TokenProvider.List() {
+		if !token.ExpiresAt.IsZero() {
+			heap.Push(pending, cleanupItem{id: token.Id, expiresAt: token.ExpiresAt})
+		}
+	}
+
+	timer := time.NewTimer(0)
+	if !timer.Stop() {
+		<-timer.C
+	}
+	resetTimer := func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+
+		if pending.Len() == 0 {
+			return
+		}
+		if d := time.Until((*pending)[0].expiresAt); d > 0 {
+			timer.Reset(d)
+		} else {
+			timer.Reset(0)
+		}
+	}
+	resetTimer()
 
 	logrus.Info("starting auth service worker")
 	for {
 		select {
 		case <-ctx.Done():
-			break
-		case <-ticker.C:
+			return
+		case item := <-s.cleanupCh:
+			heap.Push(pending, item)
+			resetTimer()
+		case <-timer.C:
 			logrus.Debug("starting token cleanup")
-			now = time.Now()
+			now := time.Now()
 
-			expiredTokens = []*Token{}
+			var expiredTokens []*Token
+			for pending.Len() > 0 && !(*pending)[0].expiresAt.After(now) {
+				item := heap.Pop(pending).(cleanupItem)
 
-			for _, token := range s.TokenProvider.List() {
-				if !token.ExpiresAt.IsZero() && token.ExpiresAt.Before(now) {
-					expiredTokens = append(expiredTokens, token)
+				token := s.TokenProvider.Get(item.id)
+				if token == nil || token.ExpiresAt.IsZero() || token.ExpiresAt.After(now) {
+					continue
+				}
+
+				expiredTokens = append(expiredTokens, token)
+			}
+
+			if len(expiredTokens) > 0 {
+				if err := s.TokenProvider.Delete(expiredTokens...); err != nil {
+					logrus.Errorf("Failed to cleanup expired tokens: %s", err.Error())
 				}
 			}
-
-			err = s.TokenProvider.Delete(expiredTokens...)
-			if err != nil {
-				logrus.Errorf("Failed to cleanup expired tokens: %s", err.Error())
-			}
+			resetTimer()
 		}
+	}
+}
+
+// enqueueCleanup schedules a token for expiry-based deletion instead of
+// waiting for the next full-list scan. Safe to call before Run starts
+// (RegisterRoutes always initializes cleanupCh first); a full queue drops
+// the item with a warning rather than blocking the caller.
+func (s *Service) enqueueCleanup(item cleanupItem) {
+	if s.cleanupCh == nil {
+		return
+	}
+
+	select {
+	case s.cleanupCh <- item:
+	default:
+		logrus.Warnf("cleanup queue full, token %q may not be cleaned up until next restart", item.id)
 	}
 }
 
@@ -186,6 +242,7 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	s.enqueueCleanup(cleanupItem{id: newToken.Id, expiresAt: newToken.ExpiresAt})
 
 	// create our cookie
 	cookie := &http.Cookie{
@@ -305,6 +362,7 @@ func (s *Service) createWSToken(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	s.enqueueCleanup(cleanupItem{id: token.Id, expiresAt: token.ExpiresAt})
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

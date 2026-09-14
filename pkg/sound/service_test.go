@@ -2,6 +2,7 @@ package sound
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"github.com/gavv/httpexpect/v2"
 	"github.com/gorilla/mux"
@@ -714,4 +715,36 @@ func TestSearch(t *testing.T) {
 		ValueEqual("sounds", []Sound{s1}).
 		ValueEqual("groups", []Group{})
 
+}
+
+func TestHiddenSoundCleanup(t *testing.T) {
+	setup()
+
+	sut := newServer()
+	defer sut.Close()
+
+	// TTL must comfortably exceed the request's own ffmpeg normalization time
+	// (CreatedAt is stamped before that runs), or the sound can already be
+	// expired by the time the HTTP response comes back.
+	svc.HiddenSoundTTL = 500 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go svc.Run(ctx)
+
+	body := []byte{82, 73, 70, 70, 36, 0, 0, 0, 87, 65, 86, 69, 102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 1, 0, 68, 172, 0, 0, 136, 88, 1, 0, 2, 0, 16, 0, 100, 97, 116, 97, 0, 0, 0, 0}
+
+	id := httpexpect.New(t, sut.URL).
+		POST("/sound/sounds/").
+		WithMultipart().
+		WithFileBytes("foo.wav", "foo.wav", body).
+		Expect().
+		Status(http.StatusCreated).
+		JSON().Object().Value("id").String().Raw()
+
+	assert.NotNil(t, soundProvider.Get(id), "sound should exist immediately after creation")
+
+	assert.Eventually(t, func() bool {
+		return soundProvider.Get(id) == nil
+	}, 3*time.Second, 20*time.Millisecond, "expected hidden sound to be cleaned up shortly after its TTL")
 }
