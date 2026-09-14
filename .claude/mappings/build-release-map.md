@@ -1,0 +1,87 @@
+# Build & Release Map
+
+How `scripts/`, `.github/workflows/`, `Dockerfile`, and `charts/` fit
+together.
+
+## Local validation (`scripts/validate/*`) — run by `validate.yaml` on every PR
+
+| Script | What it checks |
+|---|---|
+| `golang-lint` | `go mod tidy && go fmt ./...`, fails the job on any resulting diff |
+| `golang-test` | `go test ./...` (CI installs `ffmpeg`/`flite` first — `pkg/sound`'s tests shell out to both) |
+| `generate` | `go generate ./pkg/...`, fails the job on any resulting diff — this is what enforces committing regenerated `zz_*.go` files, see `../rules/golang/codegen.md` |
+| `web` | `yarn lint` in `web/speakerbob`, fails on any diff |
+| `helm` | `helm lint charts/speakerbob` |
+| `docker` | full `docker build --no-cache .` (no push) |
+
+Each runs as its own parallel CI job. Only `golang-lint`, `golang-test`,
+and `generate` need a Go toolchain and are pinned to Go `1.16.6` via
+`actions/setup-go@v2` in `validate.yaml`; `web`, `helm`, and `docker`
+don't set up Go at all.
+
+## `scripts/version`
+
+Derives `VERSION`/`IMAGE_TAG`/`CHART_VERSION`/`IS_PRERELEASE`/
+`IMAGE_NAME` from git tags (exact tag match) or branch+short-hash
+otherwise, exporting them as shell vars and (when `GITHUB_ACTIONS=true`)
+into `$GITHUB_ENV` for later workflow steps.
+
+## `scripts/format`
+
+The "run `go mod tidy` + `go fmt` locally" helper referenced by
+`../rules/golang/coding-style.md` — run it before committing to match
+what `scripts/validate/golang-lint` checks in CI.
+
+## `scripts/build` — only runs in `release.yaml`
+
+Builds the frontend (`yarn build`) and moves its output to repo-root
+`assets/` via `mv dist ../../assets` (relative to `web/speakerbob/`).
+**This does not appear to be where the binary actually looks**:
+`pkg/static/service.go`'s `//go:embed assets` is package-relative, so it
+embeds `pkg/static/assets/` — which only contains a committed 75-byte
+placeholder `index.html`, not the real frontend build. The `Dockerfile`
+gets this right independently (`COPY --from=uibuild /ui/dist
+pkg/static/assets`, see below — the Dockerfile builds the frontend
+itself in its own `uibuild` stage; it does not invoke `scripts/build`),
+but `scripts/build`'s own cross-compiled binaries (used by
+`release.yaml`) likely embed the placeholder, not the real frontend.
+This looks like a pre-existing bug in `scripts/build`, not a
+documented/intentional design — see learning
+`2026-09-11-scripts-build-embed-path-mismatch.md` for detail. Stamps
+`charts/speakerbob/Chart.yaml` and `docs/{asyncapi,openapi}.yaml` version
+fields via `yq`. Cross-compiles 3 binaries (output filenames say linux/arm64, linux/amd64,
+windows — but the arm build's own env vars look off: it sets
+`GOARCH=arm` (32-bit, not arm64) and has a typo, `GO_ENABLED=1` instead of
+`CGO_ENABLED=1`, so despite the `-arm64` output filename that binary is
+actually a 32-bit, non-cgo build. Only the amd64 and windows builds
+correctly set `CGO_ENABLED=1` — needed for the `badger`/cgo dependencies —
+with the version ldflag setting `pkg/version.Version`). Packages the helm
+chart and copies API spec docs into `dist/`.
+
+## `Dockerfile`
+
+Multi-stage: `uibuild` (node/yarn, builds `web/speakerbob`) →
+`gobuild` (`golang:1.16.6-alpine3.13`, copies the `uibuild` output to
+`pkg/static/assets`, builds the Go binary with `CGO_ENABLED=1`) → final
+`alpine` stage installing `ffmpeg`/`flite` (runtime dependencies of
+`pkg/sound/audio.go`) and copying just the built binary. Used by both
+`push-image.yaml` and `release.yaml`.
+
+## `charts/speakerbob/`
+
+Standard Helm chart layout (`Chart.yaml`, `values.yaml`,
+`templates/{deployment,ingress,pvc,secret,service}.yaml`, etc.).
+`Chart.yaml`'s `version`/`appVersion` are not hand-maintained — they're
+overwritten by `scripts/build` at release time.
+
+## GitHub Actions workflows
+
+| Workflow | Trigger | Does |
+|---|---|---|
+| `validate.yaml` | pull request | runs all `scripts/validate/*` jobs (table above) |
+| `push-image.yaml` | push to `master`/`release/*` | `scripts/version`, then builds+pushes **only** the Docker image to `ghcr.io` (tagged `$VERSION` and a branch-based `$IMAGE_TAG`) — no binaries, no chart packaging |
+| `release.yaml` | push of a `v*` tag | `scripts/version`, `scripts/build` (binaries + packaged chart + API specs into `dist/`), builds+pushes the Docker image, uploads the packaged chart to an external chart repo, creates a GitHub release with `dist/*` as assets |
+
+So: PR checks never build release artifacts; pushes to `master` only
+refresh the running Docker image; a full versioned release (binaries,
+Helm chart, GitHub release) only happens on a `v*` tag push.
