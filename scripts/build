@@ -3,23 +3,12 @@
 set -euo pipefail
 set -x
 
-pushd web/speakerbob
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true yarn install --no-lockfile --silent --cache-folder .yc
-  NODE_OPTIONS=--openssl-legacy-provider ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true yarn build
-  rm -rf ../../pkg/static/assets
-  mv dist ../../pkg/static/assets
-popd
-
 mkdir -p dist
 
 yq e -i '.version = strenv(CHART_VERSION)' charts/speakerbob/Chart.yaml
 yq e -i '.appVersion = strenv(IMAGE_TAG)' charts/speakerbob/Chart.yaml
 yq e -i '.info.version = strenv(CHART_VERSION)' docs/asyncapi.yaml
 yq e -i '.info.version = strenv(CHART_VERSION)' docs/openapi.yaml
-
-CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/pkg/version.Version=$VERSION" -o dist/speakerbob-"$VERSION"-arm64 main.go
-CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/pkg/version.Version=$VERSION" -o dist/speakerbob-"$VERSION"-amd64 main.go
-CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 GOOS=windows go build -a -installsuffix cgo -ldflags "-X github.com/paynejacob/speakerbob/pkg/version.Version=$VERSION" -o dist/speakerbob-"$VERSION"-win.exe main.go
 
 helm package charts/speakerbob -d dist
 
