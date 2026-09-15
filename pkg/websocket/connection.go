@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"github.com/gorilla/websocket"
+	"github.com/paynejacob/speakerbob/pkg/auth"
 	"time"
 )
 
@@ -24,10 +25,13 @@ type Conn struct {
 
 	service *Service
 	send    chan interface{}
+
+	// token is nil when auth is disabled (Service.AuthService.Enabled() == false).
+	token *auth.Token
 }
 
-func NewConn(ws *websocket.Conn, service *Service) *Conn {
-	return &Conn{ws: ws, service: service, send: make(chan interface{}, sendChannelSize)}
+func NewConn(ws *websocket.Conn, service *Service, token *auth.Token) *Conn {
+	return &Conn{ws: ws, service: service, token: token, send: make(chan interface{}, sendChannelSize)}
 }
 
 func (c *Conn) SendMessage(msg interface{}) {
