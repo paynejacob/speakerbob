@@ -54,3 +54,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "speakerbob.persistenceClaim" -}}
 {{- default .Chart.Name .Values.persistence.existingClaim   | trunc 63 | trimSuffix "-" }}
 {{- end }}
+
+{{- define "speakerbob.snapshotPersistenceClaim" -}}
+{{- default (printf "%s-snapshots" .Chart.Name) .Values.snapshot.persistence.existingClaim | trunc 63 | trimSuffix "-" }}
+{{- end }}

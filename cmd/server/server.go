@@ -72,10 +72,12 @@ func Server(*cobra.Command, []string) {
 
 	logrus.Info("Starting Speakerbob server")
 	s := server.NewServer(_store, server.Config{
-		Host:          config.Host,
-		Port:          config.Port,
-		DurationLimit: config.DurationLimit,
-		AuthProviders: config.Providers(),
+		Host:             config.Host,
+		Port:             config.Port,
+		DurationLimit:    config.DurationLimit,
+		AuthProviders:    config.Providers(),
+		SnapshotPath:     config.SnapshotPath,
+		SnapshotInterval: config.SnapshotInterval,
 	})
 	if err = s.Run(ctx); err != nil {
 		logrus.Errorf("server exited unexpectedly: %s", err.Error())

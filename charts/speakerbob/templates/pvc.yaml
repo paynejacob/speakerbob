@@ -16,3 +16,22 @@ spec:
     requests:
       storage: {{ .Values.persistence.size }}
 {{- end }}
+{{- if .Values.snapshot.enabled -}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "speakerbob.snapshotPersistenceClaim" . }}
+  labels:
+    {{- include "speakerbob.labels" . | nindent 4 }}
+  {{- with .Values.snapshot.persistence.annotations }}
+  annotations:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.snapshot.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.snapshot.persistence.size }}
+{{- end }}
