@@ -19,6 +19,7 @@ export default class WSConnection {
 
   private stopped = true
   private connected = false
+  private connecting = false
 
   constructor (authAPI: AxiosInstance) {
     this.install = this.install.bind(this)
@@ -31,9 +32,15 @@ export default class WSConnection {
     this.connectionOpen = this.connectionOpen.bind(this)
     this.connectionClose = this.connectionClose.bind(this)
     this.readMessage = this.readMessage.bind(this)
+    this.handleVisibilityChange = this.handleVisibilityChange.bind(this)
 
     this.auth = authAPI
     this.messageHooks = new Map<string, MessageHookFn[]>()
+
+    // iOS Safari can freeze/kill a backgrounded tab's socket without firing
+    // 'close', leaving no reconnect scheduled once the tab foregrounds again.
+    document.addEventListener('visibilitychange', this.handleVisibilityChange)
+    window.addEventListener('pageshow', this.handleVisibilityChange)
   }
 
   public install (Vue: typeof _Vue, _options?: WebsocketOptions) {
@@ -69,21 +76,29 @@ export default class WSConnection {
   }
 
   public async Connect () {
-    if (this.connected) {
+    if (this.connected || this.connecting) {
       return
     }
 
-    const token: Token = (await this.auth.get('/tokens/ws/')).data
-    const proto = (window.location.protocol === 'https:') ? 'wss' : 'ws'
-    const url = `${proto}://${window.location.hostname}:${window.location.port}/ws/?token=${token.token}`
+    this.connecting = true
 
-    this.stopped = false
+    try {
+      const token: Token = (await this.auth.get('/tokens/ws/')).data
+      const proto = (window.location.protocol === 'https:') ? 'wss' : 'ws'
+      const port = window.location.port ? `:${window.location.port}` : ''
+      const url = `${proto}://${window.location.hostname}${port}/ws/?token=${token.token}`
 
-    this.connection = new WebSocket(url)
+      this.stopped = false
 
-    this.connection.onopen = () => this.connectionOpen()
-    this.connection.onclose = () => this.connectionClose()
-    this.connection.onmessage = (props) => this.readMessage(props)
+      this.connection = new WebSocket(url)
+
+      this.connection.onopen = () => this.connectionOpen()
+      this.connection.onclose = () => this.connectionClose()
+      this.connection.onmessage = (props) => this.readMessage(props)
+    } catch (error) {
+      this.connecting = false
+      throw error
+    }
   }
 
   public Stop () {
@@ -107,6 +122,7 @@ export default class WSConnection {
 
   private async connectionOpen () {
     this.connected = true
+    this.connecting = false
 
     for (let i = 0; i < this.connectionHooks.length; i++) {
       await this.connectionHooks[i](true)
@@ -115,6 +131,7 @@ export default class WSConnection {
 
   private async connectionClose () {
     this.connected = false
+    this.connecting = false
 
     for (let i = 0; i < this.connectionHooks.length; i++) {
       await this.connectionHooks[i](false)
@@ -122,6 +139,17 @@ export default class WSConnection {
 
     if (!this.stopped) {
       setTimeout(() => this.Connect(), Math.random() * 1000)
+    }
+  }
+
+  private handleVisibilityChange () {
+    if (document.visibilityState !== 'visible' || this.stopped) {
+      return
+    }
+
+    const readyState = this.connection?.readyState
+    if (readyState === undefined || readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING) {
+      this.Connect()
     }
   }
 
