@@ -172,8 +172,6 @@ func sortSounds(sounds []*Sound, sortBy, order string) {
 	switch sortBy {
 	case "name":
 		less = func(i, j int) bool { return sounds[i].Name < sounds[j].Name }
-	case "play_count":
-		less = func(i, j int) bool { return sounds[i].PlayCount < sounds[j].PlayCount }
 	case "created_at":
 		less = func(i, j int) bool { return sounds[i].CreatedAt.Before(sounds[j].CreatedAt) }
 	default:
