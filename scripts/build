@@ -4,8 +4,8 @@ set -euo pipefail
 set -x
 
 pushd web/speakerbob
-  yarn install --no-lockfile --silent --cache-folder .yc
-  yarn build
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true yarn install --no-lockfile --silent --cache-folder .yc
+  NODE_OPTIONS=--openssl-legacy-provider ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true yarn build
   rm -rf ../../pkg/static/assets
   mv dist ../../pkg/static/assets
 popd
