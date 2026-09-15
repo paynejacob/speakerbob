@@ -18,6 +18,11 @@ var upgrader = websocket.Upgrader{
 type Service struct {
 	AuthService *auth.Service
 
+	// Broadcaster fans BroadcastMessage out to connected clients. Nil defaults
+	// to in-process fan-out, so existing zero-value Service{...} construction
+	// keeps working unchanged.
+	Broadcaster Broadcaster
+
 	m           sync.RWMutex
 	connections []*Conn
 }
@@ -26,14 +31,15 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/ws/", s.connect).Methods("GET")
 }
 
-func (s *Service) BroadcastMessage(msg interface{}) {
-	s.m.RLock()
-
-	for i := range s.connections {
-		s.connections[i].SendMessage(msg)
+func (s *Service) broadcaster() Broadcaster {
+	if s.Broadcaster != nil {
+		return s.Broadcaster
 	}
+	return &inProcessBroadcaster{service: s}
+}
 
-	s.m.RUnlock()
+func (s *Service) BroadcastMessage(msg interface{}) {
+	s.broadcaster().Broadcast(msg)
 }
 
 func (s *Service) Run(context.Context) {}
