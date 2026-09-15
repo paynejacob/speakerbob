@@ -1,6 +1,9 @@
 <template>
   <v-list flat>
     <v-subheader><v-text-field prepend-icon="fa-search" v-model="query" /></v-subheader>
+    <v-subheader>
+      <v-select :items="sortOptions" v-model="sortSelection" label="Sort by" dense hide-details />
+    </v-subheader>
     <v-subheader v-if="sounds.length > 0">Sounds</v-subheader>
     <v-list-item-group>
       <v-list-item v-for="(sound, i) in sounds" :key="i" @click="playSound(sound.id)">
@@ -9,6 +12,7 @@
         </v-list-item-icon>
         <v-list-item-content>
           <v-list-item-title v-text="sound.name"></v-list-item-title>
+          <v-list-item-subtitle>{{ sound.play_count || 0 }} plays</v-list-item-subtitle>
         </v-list-item-content>
       </v-list-item>
     </v-list-item-group>
@@ -37,6 +41,13 @@ export default class PlaySearch extends Vue {
   private sounds: Sound[] = [];
   private groups: Group[] = [];
   private timerId = 0
+  private sortSelection = ''
+  private readonly sortOptions = [
+    { text: 'Relevance', value: '' },
+    { text: 'Name (A-Z)', value: 'name:asc' },
+    { text: 'Most played', value: 'play_count:desc' },
+    { text: 'Newest', value: 'created_at:desc' }
+  ]
 
   created () {
     this.$ws.RegisterMessageHook('update_sound', this.onUpdateSound)
@@ -71,7 +82,16 @@ export default class PlaySearch extends Vue {
     clearTimeout(this.timerId)
 
     this.timerId = setTimeout(async () => {
-      const resp = await this.$api.get(`/sound/search/?q=${escape(query)}`)
+      const params = new URLSearchParams({ q: query })
+      const [sortField, sortOrder] = this.sortSelection.split(':')
+      if (sortField) {
+        params.set('sort', sortField)
+      }
+      if (sortOrder) {
+        params.set('order', sortOrder)
+      }
+
+      const resp = await this.$api.get(`/sound/search/?${params.toString()}`)
 
       if (resp.data) {
         this.sounds = resp.data.sounds
@@ -81,6 +101,11 @@ export default class PlaySearch extends Vue {
         this.groups = []
       }
     }, 250)
+  }
+
+  @Watch('sortSelection')
+  private onSortSelectionChange () {
+    this.search(this.query)
   }
 
   private async playSound (soundId: string) {

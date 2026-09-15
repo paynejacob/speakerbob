@@ -190,6 +190,7 @@ func (s *Sound) EncodeMsgpack(enc *msgpack.Encoder) error {
 		s.CreatedAt,
 		s.Name,
 		s.Duration,
+		s.PlayCount,
 		s.Hidden,
 	)
 }
@@ -200,6 +201,7 @@ func (s *Sound) DecodeMsgpack(dec *msgpack.Decoder) error {
 		&s.CreatedAt,
 		&s.Name,
 		&s.Duration,
+		&s.PlayCount,
 		&s.Hidden,
 	)
 }

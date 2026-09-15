@@ -3,12 +3,14 @@ package sound
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/gavv/httpexpect/v2"
 	"github.com/gorilla/mux"
 	"github.com/paynejacob/hotcereal/pkg/stores/memory"
 	"github.com/paynejacob/speakerbob/pkg/websocket"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -320,6 +322,97 @@ func TestPlaySound(t *testing.T) {
 		PUT(fmt.Sprintf("/sound/sounds/%s/play/", "foobar")).
 		Expect().
 		Status(http.StatusNotFound)
+}
+
+func TestPlayCountIncrement(t *testing.T) {
+	setup()
+
+	sut := newServer()
+	defer sut.Close()
+
+	s1 := NewSound()
+	s1.Name = "s1"
+	s1.Hidden = false
+	s1.Duration = 20 * time.Millisecond
+
+	_ = soundProvider.Save(&s1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go svc.Run(ctx)
+
+	httpexpect.New(t, sut.URL).
+		PUT(fmt.Sprintf("/sound/sounds/%s/play/", s1.Id)).
+		Expect().
+		Status(http.StatusAccepted)
+
+	assert.Eventually(t, func() bool {
+		stored := soundProvider.Get(s1.Id)
+		return stored != nil && stored.PlayCount == 1
+	}, 2*time.Second, 20*time.Millisecond, "expected play count to increment once the sound starts playing")
+
+	httpexpect.New(t, sut.URL).
+		PUT(fmt.Sprintf("/sound/sounds/%s/play/", s1.Id)).
+		Expect().
+		Status(http.StatusAccepted)
+
+	assert.Eventually(t, func() bool {
+		stored := soundProvider.Get(s1.Id)
+		return stored != nil && stored.PlayCount == 2
+	}, 2*time.Second, 20*time.Millisecond, "expected play count to increment again on a second play")
+}
+
+func TestListSoundSort(t *testing.T) {
+	setup()
+
+	sut := newServer()
+	defer sut.Close()
+
+	a := NewSound()
+	a.Name = "banana"
+	a.Hidden = false
+	a.PlayCount = 5
+
+	b := NewSound()
+	b.Name = "apple"
+	b.Hidden = false
+	b.PlayCount = 10
+
+	_ = soundProvider.Save(&a)
+	_ = soundProvider.Save(&b)
+
+	var byName []Sound
+	resp := httpexpect.New(t, sut.URL).
+		GET("/sound/sounds/").
+		WithQuery("sort", "name").
+		Expect().
+		Status(http.StatusOK)
+	resp.JSON().Raw()
+	require.NoError(t, json.Unmarshal([]byte(resp.Body().Raw()), &byName))
+	require.Len(t, byName, 2)
+	assert.Equal(t, "apple", byName[0].Name)
+	assert.Equal(t, "banana", byName[1].Name)
+
+	var byPlayCountDesc []Sound
+	resp = httpexpect.New(t, sut.URL).
+		GET("/sound/sounds/").
+		WithQuery("sort", "play_count").
+		WithQuery("order", "desc").
+		Expect().
+		Status(http.StatusOK)
+	require.NoError(t, json.Unmarshal([]byte(resp.Body().Raw()), &byPlayCountDesc))
+	require.Len(t, byPlayCountDesc, 2)
+	assert.Equal(t, "apple", byPlayCountDesc[0].Name)
+	assert.Equal(t, "banana", byPlayCountDesc[1].Name)
+
+	var unsorted []Sound
+	resp = httpexpect.New(t, sut.URL).
+		GET("/sound/sounds/").
+		WithQuery("sort", "not_a_real_field").
+		Expect().
+		Status(http.StatusOK)
+	require.NoError(t, json.Unmarshal([]byte(resp.Body().Raw()), &unsorted))
+	assert.Len(t, unsorted, 2, "unrecognized sort field should be a no-op, not an error")
 }
 
 func TestDownloadSound(t *testing.T) {
@@ -715,6 +808,42 @@ func TestSearch(t *testing.T) {
 		ValueEqual("sounds", []Sound{s1}).
 		ValueEqual("groups", []Group{})
 
+}
+
+func TestSearchSort(t *testing.T) {
+	setup()
+
+	sut := newServer()
+	defer sut.Close()
+
+	a := NewSound()
+	a.Name = "sort-a"
+	a.Hidden = false
+	a.PlayCount = 1
+
+	b := NewSound()
+	b.Name = "sort-b"
+	b.Hidden = false
+	b.PlayCount = 9
+
+	_ = soundProvider.Save(&a)
+	_ = soundProvider.Save(&b)
+
+	resp := httpexpect.New(t, sut.URL).
+		GET("/sound/search/").
+		WithQuery("q", "sort").
+		WithQuery("sort", "play_count").
+		WithQuery("order", "desc").
+		Expect().
+		Status(http.StatusOK)
+
+	var body struct {
+		Sounds []Sound `json:"sounds"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(resp.Body().Raw()), &body))
+	require.Len(t, body.Sounds, 2)
+	assert.Equal(t, "sort-b", body.Sounds[0].Name)
+	assert.Equal(t, "sort-a", body.Sounds[1].Name)
 }
 
 func TestHiddenSoundCleanup(t *testing.T) {

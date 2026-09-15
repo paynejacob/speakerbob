@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -64,7 +65,7 @@ func (s *Service) Run(ctx context.Context) {
 		sounds:      make([]Sound, 0),
 	}
 
-	go s.playQueue.ConsumeQueue(ctx, s.WebsocketService)
+	go s.playQueue.ConsumeQueue(ctx, s.WebsocketService, s.SoundProvider)
 
 	pending := &cleanupQueue{}
 	heap.Init(pending)
@@ -145,7 +146,7 @@ func (s *Service) enqueueCleanup(item cleanupItem) {
 	}
 }
 
-func (s *Service) listSound(w http.ResponseWriter, _ *http.Request) {
+func (s *Service) listSound(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
 	sounds := make([]*Sound, 0)
@@ -157,7 +158,34 @@ func (s *Service) listSound(w http.ResponseWriter, _ *http.Request) {
 		sounds = append(sounds, sound)
 	}
 
+	sortSounds(sounds, r.URL.Query().Get("sort"), r.URL.Query().Get("order"))
+
 	_ = json.NewEncoder(w).Encode(sounds)
+}
+
+// sortSounds sorts in place by sortBy ("name", "play_count", or "created_at");
+// an unrecognized sortBy is a no-op, leaving the caller's existing order. order
+// of "desc" reverses the comparison; anything else (including empty) is ascending.
+func sortSounds(sounds []*Sound, sortBy, order string) {
+	var less func(i, j int) bool
+
+	switch sortBy {
+	case "name":
+		less = func(i, j int) bool { return sounds[i].Name < sounds[j].Name }
+	case "play_count":
+		less = func(i, j int) bool { return sounds[i].PlayCount < sounds[j].PlayCount }
+	case "created_at":
+		less = func(i, j int) bool { return sounds[i].CreatedAt.Before(sounds[j].CreatedAt) }
+	default:
+		return
+	}
+
+	if order == "desc" {
+		sort.Slice(sounds, func(i, j int) bool { return less(j, i) })
+		return
+	}
+
+	sort.Slice(sounds, func(i, j int) bool { return less(i, j) })
 }
 
 func (s *Service) createSound(w http.ResponseWriter, r *http.Request) {
@@ -484,6 +512,8 @@ func (s *Service) search(w http.ResponseWriter, r *http.Request) {
 
 		sounds = append(sounds, sound)
 	}
+
+	sortSounds(sounds, r.URL.Query().Get("sort"), r.URL.Query().Get("order"))
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"sounds": sounds, "groups": groups})
