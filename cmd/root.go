@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/paynejacob/speakerbob/cmd/server"
+	"github.com/paynejacob/speakerbob/cmd/sound"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"os"
@@ -30,6 +31,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&logLevelString, logLevelFlag, "info", "")
 
 	rootCmd.AddCommand(server.Command)
+	rootCmd.AddCommand(sound.Command)
 
 	level, err := logrus.ParseLevel(logLevelString)
 	if err != nil {

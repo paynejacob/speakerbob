@@ -2,6 +2,7 @@ package sound
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/paynejacob/speakerbob/pkg/service"
 	"io"
@@ -50,6 +51,37 @@ func (p *SoundProvider) NewSound(filename string, audio io.ReadCloser, maxDurati
 	}
 
 	return &sound, err
+}
+
+// Renormalize re-runs audio normalization against a sound's already-stored
+// audio, for cases where the normalization parameters change after upload
+// (e.g. a duration limit change) rather than the audio itself. Unlike
+// NewSound/NewTTSSound, audio is written before Duration is saved: this
+// mutates an already-live record, so a write failure must not leave a
+// previously-correct Duration pointing at now-stale audio.
+func (p *SoundProvider) Renormalize(sound *Sound, maxDuration time.Duration) error {
+	var audioBuf bytes.Buffer
+	var normBuf bytes.Buffer
+	var err error
+
+	if err = p.ReadAudio(sound, &audioBuf); err != nil {
+		return fmt.Errorf("failed to read audio for sound %q: %w", sound.Id, err)
+	}
+
+	sound.Duration, err = normalizeAudio(sound.Id, maxDuration, &audioBuf, &normBuf)
+	if err != nil {
+		return fmt.Errorf("failed to normalize audio for sound %q: %w", sound.Id, err)
+	}
+
+	if err = p.WriteAudio(sound, &normBuf); err != nil {
+		return fmt.Errorf("failed to write audio for sound %q: %w", sound.Id, err)
+	}
+
+	if err = p.Save(sound); err != nil {
+		return fmt.Errorf("failed to save sound %q: %w", sound.Id, err)
+	}
+
+	return nil
 }
 
 func (p *SoundProvider) NewTTSSound(text string, maxDuration time.Duration) (*Sound, error) {
