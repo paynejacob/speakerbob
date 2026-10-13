@@ -1,11 +1,11 @@
 <template>
-  <v-card id="create" height="100%">
-    <v-container fluid>
-      <v-row>
-        <v-col offset-md="3" md="6" sm="12">
+  <v-card id="create" class="home-screen">
+    <v-container fluid class="home-screen__body">
+      <v-row class="home-screen__row flex-nowrap">
+        <v-col class="home-screen__list d-flex flex-column" offset-md="3" md="6" cols="8">
           <PlaySearch />
         </v-col>
-        <v-col>
+        <v-col class="home-screen__actions d-flex justify-center" md="3" cols="4">
           <v-speed-dial class="d-flex justify-center" direction="bottom">
             <template v-slot:activator>
               <v-btn v-model="fab" color="blue darken-2" dark fab>
@@ -51,11 +51,45 @@
               </v-card-text>
             </v-card>
           </v-dialog>
-          </v-col>
+        </v-col>
       </v-row>
     </v-container>
   </v-card>
 </template>
+
+<style scoped>
+.home-screen {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  height: calc(100dvh - 64px);
+  overflow: hidden;
+}
+
+.home-screen__body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.home-screen__row {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.home-screen__list {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.home-screen__actions {
+  align-self: flex-start;
+  position: relative;
+  z-index: 2;
+}
+</style>
 
 <script lang="ts">
 import Vue from 'vue'
