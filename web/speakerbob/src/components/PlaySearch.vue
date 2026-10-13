@@ -4,7 +4,13 @@
     <v-subheader>
       <v-select :items="sortOptions" v-model="sortSelection" label="Sort by" dense hide-details />
     </v-subheader>
-    <v-subheader v-if="sounds.length > 0">Sounds</v-subheader>
+    <v-subheader v-if="sounds.length > 0" class="d-flex align-center">
+      <span>Sounds</span>
+      <v-spacer />
+      <v-btn small fab color="green darken-2" dark title="Play a random sound" @click="playRandomSound">
+        <v-icon small>fa-random</v-icon>
+      </v-btn>
+    </v-subheader>
     <v-list-item-group>
       <v-list-item v-for="(sound, i) in sounds" :key="i" @click="playSound(sound.id)">
         <v-list-item-icon>
@@ -75,6 +81,13 @@ export default class PlaySearch extends Vue {
     this.query = ''
 
     await this.search(this.query)
+  }
+
+  private async playRandomSound () {
+    const soundId = this.sounds[Math.floor(Math.random() * this.sounds.length)]?.id
+    if (soundId) {
+      await this.playSound(soundId)
+    }
   }
 
   @Watch('query')
