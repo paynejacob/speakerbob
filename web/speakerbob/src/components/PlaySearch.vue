@@ -1,33 +1,45 @@
 <template>
-  <v-list flat>
-    <v-subheader><v-text-field prepend-icon="fa-search" v-model="query" /></v-subheader>
-    <v-subheader>
-      <v-select :items="sortOptions" v-model="sortSelection" label="Sort by" dense hide-details />
-    </v-subheader>
-    <v-subheader v-if="sounds.length > 0">Sounds</v-subheader>
-    <v-list-item-group>
-      <v-list-item v-for="(sound, i) in sounds" :key="i" @click="playSound(sound.id)">
-        <v-list-item-icon>
-          <v-icon>fa-volume-up</v-icon>
-        </v-list-item-icon>
-        <v-list-item-content>
-          <v-list-item-title v-text="sound.name"></v-list-item-title>
-          <v-list-item-subtitle>{{ sound.play_count || 0 }} plays</v-list-item-subtitle>
-        </v-list-item-content>
-      </v-list-item>
-    </v-list-item-group>
-    <v-subheader v-if="groups.length > 0">Groups</v-subheader>
-    <v-list-item-group>
-      <v-list-item v-for="(group, i) in groups" :key="i" @click="playGroup(group.id)">
-        <v-list-item-icon>
-          <v-icon>fa-layer-group</v-icon>
-        </v-list-item-icon>
-        <v-list-item-content>
-          <v-list-item-title v-text="group.name"></v-list-item-title>
-        </v-list-item-content>
-      </v-list-item>
-    </v-list-item-group>
-  </v-list>
+  <div class="play-search">
+    <v-list flat class="play-search__controls">
+      <v-subheader><v-text-field prepend-icon="fa-search" v-model="query" /></v-subheader>
+      <v-subheader>
+        <v-select :items="sortOptions" v-model="sortSelection" label="Sort by" dense hide-details />
+      </v-subheader>
+      <v-subheader v-if="sounds.length > 0" class="d-flex align-center">
+        <span>Sounds</span>
+        <v-spacer />
+        <v-btn small fab color="green darken-2" dark title="Play a random sound" @click="playRandomSound">
+          <v-icon small>fa-random</v-icon>
+        </v-btn>
+      </v-subheader>
+    </v-list>
+    <div class="play-search__results">
+      <v-list flat>
+        <v-list-item-group>
+          <v-list-item v-for="(sound, i) in sounds" :key="i" @click="playSound(sound.id)">
+            <v-list-item-icon>
+              <v-icon>fa-volume-up</v-icon>
+            </v-list-item-icon>
+            <v-list-item-content>
+              <v-list-item-title v-text="sound.name"></v-list-item-title>
+              <v-list-item-subtitle>{{ sound.play_count || 0 }} plays</v-list-item-subtitle>
+            </v-list-item-content>
+          </v-list-item>
+        </v-list-item-group>
+        <v-subheader v-if="groups.length > 0">Groups</v-subheader>
+        <v-list-item-group>
+          <v-list-item v-for="(group, i) in groups" :key="i" @click="playGroup(group.id)">
+            <v-list-item-icon>
+              <v-icon>fa-layer-group</v-icon>
+            </v-list-item-icon>
+            <v-list-item-content>
+              <v-list-item-title v-text="group.name"></v-list-item-title>
+            </v-list-item-content>
+          </v-list-item>
+        </v-list-item-group>
+      </v-list>
+    </div>
+  </div>
 </template>
 
 <script lang="ts">
@@ -75,6 +87,13 @@ export default class PlaySearch extends Vue {
     this.query = ''
 
     await this.search(this.query)
+  }
+
+  private async playRandomSound () {
+    const soundId = this.sounds[Math.floor(Math.random() * this.sounds.length)]?.id
+    if (soundId) {
+      await this.playSound(soundId)
+    }
   }
 
   @Watch('query')
@@ -171,5 +190,21 @@ export default class PlaySearch extends Vue {
 </script>
 
 <style scoped>
+.play-search {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
 
+.play-search__controls {
+  flex: 0 0 auto;
+}
+
+.play-search__results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
 </style>
