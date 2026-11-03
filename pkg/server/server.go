@@ -24,6 +24,7 @@ type Config struct {
 	Port          int
 	DurationLimit time.Duration
 	AuthProviders []auth.Provider
+	OIDC          auth.OIDCConfig
 
 	SnapshotPath     string
 	SnapshotInterval time.Duration
@@ -54,6 +55,7 @@ func NewServer(_store store.Store, config Config) *Server {
 		TokenProvider: &tokenProvider,
 		UserProvider:  &userProvider,
 		Providers:     config.AuthProviders,
+		OIDC:          config.OIDC,
 	}
 	svr.serviceManager.RegisterService(authRouter, authService)
 	websocketService := &websocket.Service{AuthService: authService}

@@ -76,6 +76,7 @@ func Server(*cobra.Command, []string) {
 		Port:             config.Port,
 		DurationLimit:    config.DurationLimit,
 		AuthProviders:    config.Providers(),
+		OIDC:             config.Auth.OIDC,
 		SnapshotPath:     config.SnapshotPath,
 		SnapshotInterval: config.SnapshotInterval,
 	})

@@ -27,6 +27,8 @@ type Service struct {
 	states        StateManager
 
 	Providers []Provider
+	OIDC      OIDCConfig
+	oidc      oidcFlow
 
 	cleanupCh chan cleanupItem
 }
@@ -51,6 +53,11 @@ func (s *Service) RegisterRoutes(router *mux.Router) {
 
 	router.HandleFunc("/providers/", s.listProviders).Methods(http.MethodGet)
 	router.HandleFunc("/callback/", s.callback).Methods(http.MethodGet)
+
+	if s.OIDC.Enabled {
+		router.HandleFunc("/oidc/login/", s.oidcLogin).Methods(http.MethodGet)
+		router.HandleFunc("/oidc/callback/", s.oidcCallback).Methods(http.MethodGet)
+	}
 
 	router.HandleFunc("/tokens/", s.listToken).Methods(http.MethodGet)
 	router.HandleFunc("/tokens/ws/", s.createWSToken).Methods(http.MethodGet)
@@ -155,7 +162,7 @@ func (s *Service) Handler(h http.Handler) http.Handler {
 }
 
 func (s *Service) Enabled() bool {
-	return len(s.Providers) > 0
+	return len(s.Providers) > 0 || s.OIDC.Enabled
 }
 
 func (s *Service) VerifyRequest(r *http.Request) (*Token, bool) {
@@ -168,7 +175,6 @@ func (s *Service) VerifyWebsocket(r *http.Request) (*Token, bool) {
 
 // Callback
 func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
-	var user *User
 	var provider Provider
 
 	providerName := s.states.getProviderName(r.URL.Query().Get("state"))
@@ -197,8 +203,16 @@ func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.loginUser(w, r, principal, userEmail)
+}
+
+// loginUser finds or creates the user for a verified principal, issues a
+// session token, sets the session cookie and redirects to the app root.
+func (s *Service) loginUser(w http.ResponseWriter, r *http.Request, principal Principal, userEmail string) {
+	var err error
+
 	// see if the user exists and is bound to this principal
-	user = s.UserProvider.GetByPrincipals(principal)
+	user := s.UserProvider.GetByPrincipals(principal)
 	if user == nil {
 		logrus.Debug("[auth.callback] user matching principal not found")
 		// see if this user exists for this email
@@ -431,6 +445,11 @@ func (s *Service) deleteToken(w http.ResponseWriter, r *http.Request) {
 
 // External Auth
 func (s *Service) providerRedirect(w http.ResponseWriter, r *http.Request) {
+	if s.OIDC.Enabled && r.URL.Query().Get("provider") == oidcProviderName {
+		s.oidcLogin(w, r)
+		return
+	}
+
 	for _, provider := range s.Providers {
 		if provider.Name() == r.URL.Query().Get("provider") {
 			provider.LoginRedirect(w, r, s.states.NewState(provider))
@@ -447,6 +466,10 @@ func (s *Service) listProviders(w http.ResponseWriter, _ *http.Request) {
 	var provider Provider
 	for _, provider = range s.Providers {
 		result = append(result, provider.Name())
+	}
+
+	if s.OIDC.Enabled {
+		result = append(result, oidcProviderName)
 	}
 
 	_ = json.NewEncoder(w).Encode(result)

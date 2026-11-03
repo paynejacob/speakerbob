@@ -22,6 +22,7 @@ type Configuration struct {
 
 	Auth struct {
 		Github github.Provider `yaml:"github"`
+		OIDC   auth.OIDCConfig `yaml:"oidc"`
 	} `yaml:"auth"`
 
 	providers []auth.Provider
