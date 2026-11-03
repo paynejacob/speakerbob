@@ -28,6 +28,10 @@ export default class Login extends Vue {
     if (this.providers.length === 0) {
       return await this.$router.push('/')
     }
+
+    if (this.providers.includes('oidc') && !this.providers.includes('github')) {
+      this.loginWithProvider('oidc')
+    }
   }
 
   private static async getProviders (): Promise<string[]> {

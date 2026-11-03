@@ -24,6 +24,12 @@ OAuth-based authentication/authorization and session/token management.
   respectively).
 - `User` (`user.go`): hotcereal type — `Email`, `Principals`
   (`"<provider>://<id>"` strings), free-form `Preferences`.
+- OIDC (`oidc.go`): generic OIDC login that bypasses the `Provider`
+  interface. `OIDCConfig` (`auth.oidc` in the YAML config) enables
+  `/oidc/login/` (state + nonce + PKCE) and `/oidc/callback/`, which
+  verifies the ID token and calls `loginUser` (shared with `callback`) to
+  find/create the user and set the session cookie. `/login/?provider=oidc`
+  also redirects to it, and `/providers/` lists `oidc` when enabled.
 - `StateManager` (`state.go`): in-memory map with a 5-minute
   self-expiring entry per OAuth flow.
 - Depends on: `pkg/service` (error responses), `gorilla/mux`.
